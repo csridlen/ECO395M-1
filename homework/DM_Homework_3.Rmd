@@ -10,6 +10,7 @@ output: md_document
 ```{r libraries, include = FALSE}
 library(tidymodels)
 library(tidyverse)
+library(pdp)
 ```
 
 # Tree modeling: dengue cases
@@ -17,12 +18,14 @@ library(tidyverse)
 ```{r dengue_data, include = FALSE}
 # Load data
 dengue <- read_csv("../data/dengue.csv")
+# Remove missing values
+dengue <- dengue[complete.cases(dengue),]
 ```
 
 ```{r CART, include = FALSE}
 
 # Create regression tree
-model_spec <- decision_tree() %>%
+cart_spec <- decision_tree() %>%
   set_mode("regression") %>%
   set_engine("rpart")
 
@@ -33,26 +36,116 @@ ggplot(dengue, aes(x = total_cases)) +
 ggplot(dengue, aes(x = log(total_cases))) +
   geom_histogram()
 
-dengue <- dengue %>%
-  mutate(log_cases = log(total_cases))
 # Train-test split
-dengue_split <- initial_split(dengue, prop = 0.8, strata = log_cases)
+dengue_split <- initial_split(dengue, prop = 0.8, strata = total_cases)
 dengue_train <- training(dengue_split)
 dengue_test <- testing(dengue_split)
 
 # Fit to the training data
 glimpse(dengue)
 
-model_fit <- model_spec %>%
-  fit(formula = log_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt, data = dengue_train)
+model_cart <- cart_spec %>%
+  fit(formula = total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt, data = dengue_train)
 
-model_fit
-
-# Cross Validation
+model_cart
 
 # In-sample performance
+in_dengue_cart <- predict(model_cart, dengue_train) %>%
+  bind_cols(dengue_train)
+
+rmse(in_dengue_cart,
+     estimate = .pred,
+     truth = total_cases)
+
+# Cross Validate with training data
+set.seed(20)
+dengue_folds <- vfold_cv(dengue_train, v = 10)
+cart_cv <- fit_resamples(cart_spec,
+                         total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt,
+                         resamples = dengue_folds,
+                         metrics = metric_set(rmse))
+collect_metrics(cart_cv, summarize = TRUE)
 
 # Out-of-sample performance
+out_dengue_cart <- predict(model_cart, dengue_test) %>%
+  bind_cols(dengue_test)
+
+rmse_out_cart <- rmse(out_dengue_cart,
+     estimate = .pred,
+     truth = total_cases)
+rmse_out_cart
 ```
 
-I log-transformed the response variable `total_cases` because it was heavily right skewed. Log-transforming the variable made the distribution a little more bell-shaped.
+```{r random_forests, include = FALSE}
+# Specify model
+rand_spec <- rand_forest() %>%
+  set_mode("regression") %>%
+  set_engine("ranger")
+
+# Train model
+
+model_rand <- rand_spec %>%
+  fit(total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt,
+      data = dengue_train)
+
+# Cross-validated in sample performance
+
+set.seed(50)
+rand_cv <- fit_resamples(rand_spec,
+                         total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt,
+                         resamples = dengue_folds,
+                         metrics = metric_set(rmse))
+collect_metrics(rand_cv, summarize = TRUE)
+
+# Out-of-sample performance
+
+out_dengue_rand <- predict(model_rand, dengue_test) %>%
+  bind_cols(dengue_test)
+
+rmse_out_rand <- rmse(out_dengue_rand,
+                      estimate = .pred,
+                      truth = total_cases) 
+rmse_out_rand
+```
+
+```{r boosted, include = FALSE}
+
+# Specify
+boost_spec <- boost_tree() %>%
+  set_mode("regression") %>%
+  set_engine("xgboost")
+
+# Train model
+boost_model <- fit(boost_spec,
+                   total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt,
+                   dengue_train)
+
+# CV
+set.seed(100)
+boost_cv <- fit_resamples(boost_spec,
+                            total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt,
+                            resamples = dengue_folds,
+                            metrics = metric_set(rmse))
+collect_metrics(boost_cv, summarize = TRUE)
+
+# Out of Sample
+out_dengue_boost <- predict(boost_model, dengue_test)  %>%
+  bind_cols(dengue_test)
+
+rmse_out_boost <- rmse(out_dengue_boost,
+                       estimate = .pred,
+                       truth = total_cases)
+rmse_out_boost
+```
+
+```{r tree_table}
+# Create table listing in-sample and out of sample performance of tree models
+
+
+```
+
+```{r pdp, echo = FALSE}
+
+p1 <- partial(model_rand, pred.var = "specific_humidity", type = "regression", train = dengue_train, plot = TRUE,  rug = TRUE)
+autoplot(p1)
+```
