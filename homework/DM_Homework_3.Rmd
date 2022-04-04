@@ -10,6 +10,7 @@ output: md_document
 ```{r libraries, include = FALSE}
 library(tidymodels)
 library(tidyverse)
+library(rpart.plot)
 library(pdp)
 ```
 
@@ -20,6 +21,9 @@ library(pdp)
 dengue <- read_csv("../data/dengue.csv")
 # Remove missing values
 dengue <- dengue[complete.cases(dengue),]
+# Treat categorical variables
+dengue$city <- factor(dengue$city)
+dengue$season <- factor(dengue$season)
 ```
 
 ```{r CART, include = FALSE}
@@ -29,45 +33,53 @@ cart_spec <- decision_tree() %>%
   set_mode("regression") %>%
   set_engine("rpart")
 
-# Plot response variable
-ggplot(dengue, aes(x = total_cases)) +
-  geom_histogram()
-
-ggplot(dengue, aes(x = log(total_cases))) +
-  geom_histogram()
 
 # Train-test split
 dengue_split <- initial_split(dengue, prop = 0.8, strata = total_cases)
 dengue_train <- training(dengue_split)
 dengue_test <- testing(dengue_split)
 
-# Fit to the training data
-glimpse(dengue)
+# Choose best model
+tune_spec <- decision_tree(tree_depth = tune(),
+                           cost_complexity = tune()) %>%
+  set_mode("regression") %>%
+  set_engine("rpart")
 
-model_cart <- cart_spec %>%
-  fit(formula = total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt, data = dengue_train)
+# Tuning grid
+tree_grid <- grid_regular(parameters(tune_spec),
+                          levels = 4)
+tree_grid
 
-model_cart
+# Tune along the grid
+folds <- vfold_cv(dengue_train, v = 10)
+tune_results <- tune_grid(tune_spec,
+                          total_cases ~ .,
+                          resamples = folds,
+                          grid = tree_grid,
+                          metrics = metric_set(rmse))
+
+# Find best model
+# Fit to training data
+final_params <- select_best(tune_results)
+best_spec <- finalize_model(tune_spec, final_params)
+cart_final <- fit(best_spec,
+                 total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt,
+                 data = dengue_train)
+
+cart_final 
+view(final_params)
+
 
 # In-sample performance
-in_dengue_cart <- predict(model_cart, dengue_train) %>%
+in_dengue_cart <- predict(cart_final, dengue_train) %>%
   bind_cols(dengue_train)
 
 rmse(in_dengue_cart,
      estimate = .pred,
      truth = total_cases)
 
-# Cross Validate with training data
-set.seed(20)
-dengue_folds <- vfold_cv(dengue_train, v = 10)
-cart_cv <- fit_resamples(cart_spec,
-                         total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt,
-                         resamples = dengue_folds,
-                         metrics = metric_set(rmse))
-collect_metrics(cart_cv, summarize = TRUE)
-
 # Out-of-sample performance
-out_dengue_cart <- predict(model_cart, dengue_test) %>%
+out_dengue_cart <- predict(cart_final, dengue_test) %>%
   bind_cols(dengue_test)
 
 rmse_out_cart <- rmse(out_dengue_cart,
@@ -75,6 +87,12 @@ rmse_out_cart <- rmse(out_dengue_cart,
      truth = total_cases)
 rmse_out_cart
 ```
+
+### Comparisons
+
+The CART model was fit with the formula `total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt` using the training data. I used the `tidymodels` package and `rpart` engine to specify the decision tree. After fitting the model, I identified the optimal cost complexity and tree depth parameters that would minimize the RMSE through cross-validation. The model was then pruned so that the final decision tree used the optimal parameters `cp = 1e=-10` and `tree_depth =5`. Finally, the in-sample performance was calculated after cross-validation using the training data, and out-of-sample performance was calculated using the testing data.
+
+To fit the random forests model, the same formula `total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt` was used on the training data. I calculated the in-sample and out-of-sample performances for this model. Fitting the boosted tree model was similar, and the in-sample and out-of-sample performances for the three models are summarized below.
 
 ```{r random_forests, include = FALSE}
 # Specify model
@@ -93,7 +111,7 @@ model_rand <- rand_spec %>%
 set.seed(50)
 rand_cv <- fit_resamples(rand_spec,
                          total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt,
-                         resamples = dengue_folds,
+                         resamples = folds,
                          metrics = metric_set(rmse))
 collect_metrics(rand_cv, summarize = TRUE)
 
@@ -144,8 +162,32 @@ rmse_out_boost
 
 ```
 
-```{r pdp, echo = FALSE}
+The random forests model has the lowest out of sample RMSE. So we use this model for the partial dependence plots:
 
-p1 <- partial(model_rand, pred.var = "specific_humidity", type = "regression", train = dengue_train, plot = TRUE,  rug = TRUE)
-autoplot(p1)
+```{r pdp_2, echo = FALSE}
+
+
+
+```
+
+# Predictive model building: green certification
+
+```{r green_data, include = FALSE}
+
+# Load data
+greenbuildings <- read_csv("../data/greenbuildings.csv")
+
+# Categorical variables to factors
+glimpse(greenbuildings)
+greenbuildings <- greenbuildings %>%
+  mutate(CS_PropertyID = factor(CS_PropertyID),
+         cluster = factor(cluster))
+# Train test split
+green_split <- initial_split(greenbuildings, prop = 0.8)
+green_train <- training(green_split)
+green_test <- testing(green_split)
+```
+
+```{r green_bagged}
+
 ```
