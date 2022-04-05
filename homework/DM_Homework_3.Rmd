@@ -10,7 +10,7 @@ library(tidymodels)
 library(tidyverse)
 library(rpart.plot)
 library(pdp)
-library(gamlr)
+library(glmnet)
 setwd("C:/Users/tinar/ECO395M-Homework/homework")
 ```
 
@@ -195,14 +195,14 @@ greenbuildings <- greenbuildings %>%
   mutate(revenue_sqft = Rent*leasing_rate)
 
 # Remove rent and leasing rate
-greenbuildings <- subset(greenbuildings, select = -c(Rent, leasing_rate))
+# greenbuildings <- subset(greenbuildings, select = -c(Rent, leasing_rate))
 
 #Remove missing values
 greenbuildings <- greenbuildings[complete.cases(greenbuildings),]
 
 
 # Train test split
-green_split <- initial_split(greenbuildings, prop = 0.8)
+green_split <- initial_split(greenbuildings, prop = 0.8, strata = revenue_sqft)
 green_train <- training(green_split)
 green_test <- testing(green_split)
 ```
@@ -227,15 +227,13 @@ tunegrid_rand <- grid_regular(rf_param,
                               levels = 2)
 green_folds <- vfold_cv(green_train, v = 5)
 tune_results <- tune_grid(rand_spec,
-                          revenue_sqft ~ .,
+                          revenue_sqft ~ . - Rent - leasing_rate,
                           resamples = green_folds,
                           grid = tunegrid_rand,
                           metrics = metric_set(rmse))
 best_rand_params <- select_best(tune_results)
 final_spec <- finalize_model(rand_spec, best_rand_params)
-rand_model <- final_spec %>% fit(formula = revenue_sqft ~ ., data = green_train)
-
-vip::vip(rand_model)
+rand_model <- final_spec %>% fit(formula = revenue_sqft ~ . - Rent - leasing_rate, data = green_train)
 
 # In-sample performance
 pred_insample <- predict(rand_model,
@@ -259,13 +257,13 @@ rmse(pred_outsample,
 
 ```{r lasso_green, include = FALSE}
 
-x = sparse.model.matrix(revenue_sqft ~ . -CS_PropertyID - cluster, data = greenbuildings)
+x = model.matrix(revenue_sqft ~ . -CS_PropertyID - cluster, data = greenbuildings)
 y = greenbuildings$revenue_sqft
 
-xtrain = sparse.model.matrix(revenue_sqft ~ . -CS_PropertyID - cluster, data = green_train)
+xtrain = model.matrix(revenue_sqft ~ . -CS_PropertyID - cluster, data = green_train)
 ytrain = green_train$revenue_sqft
 
-xtest = sparse.model.matrix(revenue_sqft ~ . -CS_PropertyID - cluster, data = green_test)
+xtest = model.matrix(revenue_sqft ~ . -CS_PropertyID - cluster, data = green_test)
 ytest = green_test$revenue_sqft
 
 #### Lasso regression
@@ -280,6 +278,12 @@ cv_out <- cv.glmnet(xtrain, ytrain, alpha = 1)
 best_l <-cv_out$lambda.min
 
 
+
+# in-sample predictions
+
+
+
+# out of sample
 lasso_pred <- predict(lasso, s = best_l,
                       newx = xtest)
 
@@ -288,9 +292,8 @@ rmse_lasso
 
 # obtain coefficient estimates
 
-
 lasso_out <- glmnet(x, y, alpha = 1, lambda = grid)
-lasso_coef <- predict(lasso_out, type = "coefficients", 
+lasso_coef <- predict(lasso, type = "coefficients", 
                       s = best_l)[1:20, ]
 lasso_coef
 ```
