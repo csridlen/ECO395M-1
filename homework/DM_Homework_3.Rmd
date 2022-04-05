@@ -5,14 +5,21 @@ date: "`r Sys.Date()`"
 output: md_document
 ---
 
-# What causes what?
-
 ```{r libraries, include = FALSE}
 library(tidymodels)
 library(tidyverse)
 library(rpart.plot)
 library(pdp)
+library(gamlr)
+setwd("C:/Users/tinar/ECO395M-Homework/homework")
 ```
+
+# What causes what?
+
+1.  The regression estimates will be highly biased because the correlation between crime and number of police in a city is extremely high. We could not establish causality with this regression.
+2.  The researchers from UPenn found a scenario in which number of police is *not* caused by crime rate. Specifically, in Washington, D.C., the city is on "High Alert" if the risk of terrorism at the time is high. Thus the number of police stationed in the city is high and unrelated to hte actual level of crime that occurs. Their regression shows that when policy presence is high, the crime level decreases.
+3.  The researchers controlled for the possibility that people might not be outside in the D.C. area during High Alert times. In Table 2, they find that even after controlling for number of people active in the city, the level of crime still decreases at a significant level when police presence is high.
+4.  
 
 # Tree modeling: dengue cases
 
@@ -182,12 +189,108 @@ glimpse(greenbuildings)
 greenbuildings <- greenbuildings %>%
   mutate(CS_PropertyID = factor(CS_PropertyID),
          cluster = factor(cluster))
+
+# Create revenue per square foot variable
+greenbuildings <- greenbuildings %>%
+  mutate(revenue_sqft = Rent*leasing_rate)
+
+# Remove rent and leasing rate
+greenbuildings <- subset(greenbuildings, select = -c(Rent, leasing_rate))
+
+#Remove missing values
+greenbuildings <- greenbuildings[complete.cases(greenbuildings),]
+
+
 # Train test split
 green_split <- initial_split(greenbuildings, prop = 0.8)
 green_train <- training(green_split)
 green_test <- testing(green_split)
 ```
 
-```{r green_bagged}
+```{r green_rf, echo = FALSE}
+rand_spec <- rand_forest(
+  mtry = tune(),
+  trees = 500,
+  min_n = tune()) %>%
+  set_mode("regression") %>%
+  set_engine("ranger", importance = "impurity")
 
+# Get rid of the unknown
+rf_param <- rand_spec %>%
+  parameters()
+rf_param <-
+  rf_param %>%
+  finalize(x = green_train)
+
+# Create tuning grid
+tunegrid_rand <- grid_regular(rf_param,
+                              levels = 2)
+green_folds <- vfold_cv(green_train, v = 5)
+tune_results <- tune_grid(rand_spec,
+                          revenue_sqft ~ .,
+                          resamples = green_folds,
+                          grid = tunegrid_rand,
+                          metrics = metric_set(rmse))
+best_rand_params <- select_best(tune_results)
+final_spec <- finalize_model(rand_spec, best_rand_params)
+rand_model <- final_spec %>% fit(formula = revenue_sqft ~ ., data = green_train)
+
+vip::vip(rand_model)
+
+# In-sample performance
+pred_insample <- predict(rand_model,
+                         green_train) %>%
+  bind_cols(green_train)
+
+rmse(pred_insample,
+     estimate = .pred,
+     truth = revenue_sqft)
+
+# Out performance
+pred_outsample <- predict(rand_model,
+                          green_test) %>%
+  bind_cols(green_test)
+
+rmse(pred_outsample,
+     estimate = .pred,
+     truth = revenue_sqft)
+
+```
+
+```{r lasso_green, include = FALSE}
+
+x = sparse.model.matrix(revenue_sqft ~ . -CS_PropertyID - cluster, data = greenbuildings)
+y = greenbuildings$revenue_sqft
+
+xtrain = sparse.model.matrix(revenue_sqft ~ . -CS_PropertyID - cluster, data = green_train)
+ytrain = green_train$revenue_sqft
+
+xtest = sparse.model.matrix(revenue_sqft ~ . -CS_PropertyID - cluster, data = green_test)
+ytest = green_test$revenue_sqft
+
+#### Lasso regression
+
+grid <- 10^seq(10, -2, length  = 100)
+lasso = glmnet(xtrain, ytrain, alpha = 1, lambda = grid)
+
+
+# cross-validated lasso
+set.seed(123)
+cv_out <- cv.glmnet(xtrain, ytrain, alpha = 1)
+best_l <-cv_out$lambda.min
+
+
+lasso_pred <- predict(lasso, s = best_l,
+                      newx = xtest)
+
+rmse_lasso <- mean(sqrt((lasso_pred - ytest)^2))
+rmse_lasso
+
+# obtain coefficient estimates
+
+
+lasso_out <- glmnet(x, y, alpha = 1, lambda = grid)
+lasso_coef <- predict(lasso_out, type = "coefficients", 
+                      s = best_l)[1:20, ]
+lasso_coef
 ```
