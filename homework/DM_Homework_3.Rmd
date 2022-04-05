@@ -202,10 +202,13 @@ greenbuildings <- greenbuildings[complete.cases(greenbuildings),]
 
 
 # Train test split
+set.seed(100)
 green_split <- initial_split(greenbuildings, prop = 0.8, strata = revenue_sqft)
 green_train <- training(green_split)
 green_test <- testing(green_split)
 ```
+
+First, I created the revenue per square foot variable `revenue_sqft` by multiplying `Rent` and `leasing_rate`. In order to isolate the effects of all other predictor variables, I naturally removed these variables from the dataset. However, upon running a Random Forest regression, the out-of-sample RMSE was more than twice the RMSE of the in-sample predictions. I then ran the Random Forest model again, this time including rent and leasing rate, to see what the issue was:
 
 ```{r green_rf, echo = FALSE}
 rand_spec <- rand_forest(
@@ -227,20 +230,20 @@ tunegrid_rand <- grid_regular(rf_param,
                               levels = 2)
 green_folds <- vfold_cv(green_train, v = 5)
 tune_results <- tune_grid(rand_spec,
-                          revenue_sqft ~ . - Rent - leasing_rate,
+                          revenue_sqft ~ .,
                           resamples = green_folds,
                           grid = tunegrid_rand,
                           metrics = metric_set(rmse))
 best_rand_params <- select_best(tune_results)
 final_spec <- finalize_model(rand_spec, best_rand_params)
-rand_model <- final_spec %>% fit(formula = revenue_sqft ~ . - Rent - leasing_rate, data = green_train)
+rand_model <- final_spec %>% fit(formula = revenue_sqft ~ ., data = green_train)
 
 # In-sample performance
 pred_insample <- predict(rand_model,
                          green_train) %>%
   bind_cols(green_train)
 
-rmse(pred_insample,
+rmse_in_rf <- rmse(pred_insample,
      estimate = .pred,
      truth = revenue_sqft)
 
@@ -249,11 +252,15 @@ pred_outsample <- predict(rand_model,
                           green_test) %>%
   bind_cols(green_test)
 
-rmse(pred_outsample,
+rmse_out_rf <- rmse(pred_outsample,
      estimate = .pred,
      truth = revenue_sqft)
 
+# Variable importance plot
+vip::vip(rand_model)
 ```
+
+The variable importance plot shows that `Rent` and `leasing_rate` are overwhelming any predictive power of the other variables. I perform a lasso regression next to allow R to select important variables itself.
 
 ```{r lasso_green, include = FALSE}
 
@@ -277,11 +284,11 @@ set.seed(123)
 cv_out <- cv.glmnet(xtrain, ytrain, alpha = 1)
 best_l <-cv_out$lambda.min
 
-
-
 # in-sample predictions
-
-
+cv_pred <- predict(cv_out, c = best_l,
+                   newx = xtrain)
+rmse_cv <- mean(sqrt((cv_pred - ytrain)^2))
+rmse_cv
 
 # out of sample
 lasso_pred <- predict(lasso, s = best_l,
@@ -296,4 +303,162 @@ lasso_out <- glmnet(x, y, alpha = 1, lambda = grid)
 lasso_coef <- predict(lasso, type = "coefficients", 
                       s = best_l)[1:20, ]
 lasso_coef
+lasso_coef["green_rating"]
+```
+
+Without rent and leasing rate
+
+```{r green_data_removed, include= FALSE}
+# Load data
+greenbuildings <- read_csv("../data/greenbuildings.csv")
+
+# Categorical variables to factors
+glimpse(greenbuildings)
+greenbuildings <- greenbuildings %>%
+  mutate(CS_PropertyID = factor(CS_PropertyID),
+         cluster = factor(cluster))
+
+# Create revenue per square foot variable
+greenbuildings <- greenbuildings %>%
+  mutate(revenue_sqft = Rent*leasing_rate)
+
+# Remove rent and leasing rate
+greenbuildings <- subset(greenbuildings, select = -c(Rent, leasing_rate))
+
+#Remove missing values
+greenbuildings <- greenbuildings[complete.cases(greenbuildings),]
+
+
+# Train test split
+set.seed(100)
+green_split <- initial_split(greenbuildings, prop = 0.8, strata = revenue_sqft)
+green_train <- training(green_split)
+green_test <- testing(green_split)
+```
+
+```{r green_rf_wo, include = FALSE}
+
+rand_spec <- rand_forest(
+  mtry = tune(),
+  trees = 500,
+  min_n = tune()) %>%
+  set_mode("regression") %>%
+  set_engine("ranger", importance = "impurity")
+
+# Get rid of the unknown
+rf_param <- rand_spec %>%
+  parameters()
+rf_param <-
+  rf_param %>%
+  finalize(x = green_train)
+
+# Create tuning grid
+tunegrid_rand <- grid_regular(rf_param,
+                              levels = 2)
+green_folds <- vfold_cv(green_train, v = 5)
+tune_results <- tune_grid(rand_spec,
+                          revenue_sqft ~ .,
+                          resamples = green_folds,
+                          grid = tunegrid_rand,
+                          metrics = metric_set(rmse))
+best_rand_params <- select_best(tune_results)
+final_spec <- finalize_model(rand_spec, best_rand_params)
+rand_model <- final_spec %>% fit(formula = revenue_sqft ~ ., data = green_train)
+
+# In-sample performance
+pred_insample <- predict(rand_model,
+                         green_train) %>%
+  bind_cols(green_train)
+
+rmse(pred_insample,
+     estimate = .pred,
+     truth = revenue_sqft)
+
+# Out performance
+pred_outsample <- predict(rand_model,
+                          green_test) %>%
+  bind_cols(green_test)
+
+rmse(pred_outsample,
+     estimate = .pred,
+     truth = revenue_sqft)
+
+# Variable importance plot
+vip::vip(rand_model)
+```
+
+```{r lasso_green_wo, include = FALSE}
+
+x = model.matrix(revenue_sqft ~ . -CS_PropertyID - cluster, data = greenbuildings)
+y = greenbuildings$revenue_sqft
+
+xtrain = model.matrix(revenue_sqft ~ . -CS_PropertyID - cluster, data = green_train)
+ytrain = green_train$revenue_sqft
+
+xtest = model.matrix(revenue_sqft ~ . -CS_PropertyID - cluster, data = green_test)
+ytest = green_test$revenue_sqft
+
+#### Lasso regression
+
+grid <- 10^seq(10, -2, length  = 100)
+lasso = glmnet(xtrain, ytrain, alpha = 1, lambda = grid)
+
+
+# cross-validated lasso
+set.seed(123)
+cv_out <- cv.glmnet(xtrain, ytrain, alpha = 1)
+best_l <-cv_out$lambda.min
+
+# in-sample predictions
+cv_pred <- predict(cv_out, c = best_l,
+                   newx = xtrain)
+rmse_cv <- mean(sqrt((cv_pred - ytrain)^2))
+rmse_cv
+
+# out of sample
+lasso_pred <- predict(lasso, s = best_l,
+                      newx = xtest)
+
+rmse_lasso <- mean(sqrt((lasso_pred - ytest)^2))
+rmse_lasso
+
+# obtain coefficient estimates
+
+lasso_out <- glmnet(x, y, alpha = 1, lambda = grid)
+lasso_coef <- predict(lasso, type = "coefficients", 
+                      s = best_l)[1:20, ]
+lasso_coef
+lasso_coef["green_rating"]
+```
+
+I then ran a lasso regression, since there seems to be high multicollinearity within many of the variables. The RMSE was high, but there was no longer evidence of overfitting. I then ran random forest and lasso regressions again, including `Rent` and `leasing_rate` in the regression.
+
++--------------------------------------------+--------------+--------------+
+| Model                                      | RMSE in      | RMSE out     |
++============================================+==============+==============+
+| Lasso (with rent, leasing rate)            | 125          | 128          |
++--------------------------------------------+--------------+--------------+
+| Lasso (without rent, leasing rate)         | 622          | 625          |
++--------------------------------------------+--------------+--------------+
+| Random Forest (with rent, leasing rate)    | 72           | 86           |
++--------------------------------------------+--------------+--------------+
+| Random Forest (without rent, leasing rate) | 288          | 710          |
++--------------------------------------------+--------------+--------------+
+
+What we notice in the table is that by excluding rent and leasing rate from the regression is that the variance of the estimates increases. This is obvious due to the overfitting of the random forest model even when R chooses the optimal tree depth and number of randomly selected predictors. The lasso regression performs similarly in and out of sample. But with the exclusion of rent and leasing rate, the model has a harder time predicting what the revenue per square foot of the building will be, so the variance increases. However, we can better isolate the effects of predictor variables that are not almost perfectly correlated with our response variable `revenue_sqft`. I include the lasso regression estimates both including and excluding rent and leasing rate:
+
++-----------------------------------------+-------------------------------------+------------------------------------------------+
+| Lasso estimate of `green_rating` (with) | **Lasso estimate of `LEED` (with)** | **Lasso estimate of `green_rating` (without)** |
++=========================================+=====================================+================================================+
+| 0                                       | -26                                 | 194                                            |
++-----------------------------------------+-------------------------------------+------------------------------------------------+
+
+So holding all else constant, having a green rating increases revenue per square foot (per calendar year) by \$194.
+
+I include the summary statistics of `revenue_sqft` for reference:
+
+```{r summ_table, echo = FALSE}
+summ <- c(summary(greenbuildings$revenue_sqft))
+summ_df <- data.frame(summ)
+knitr::kable(summ_df, caption = "Summary Statistics for Revenue per Square Foot per Calendar Year")
 ```
