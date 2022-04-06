@@ -269,7 +269,7 @@ The goal is to create the best predictive model for revenue per square foot per 
 ## Data and Results
 First, I created the revenue per square foot variable `revenue_sqft` by multiplying `Rent` and `leasing_rate`. In order to isolate the effects of all other predictor variables, I naturally removed these variables from the dataset. However, upon running a Random Forest regression, the out-of-sample RMSE was more than twice the RMSE of the in-sample predictions. I then ran the Random Forest model again, this time including rent and leasing rate, to see what the issue was:
 
-```{r green_rf, echo = FALSE}
+```{r green_rf, echo = FALSE, cache = TRUE}
 rand_spec <- rand_forest(
   mtry = tune(),
   trees = 500,
@@ -393,7 +393,7 @@ green_train <- training(green_split)
 green_test <- testing(green_split)
 ```
 
-```{r green_rf_wo, include = FALSE}
+```{r green_rf_wo, include = FALSE, cache = TRUE}
 
 rand_spec <- rand_forest(
   mtry = tune(),
@@ -549,7 +549,7 @@ folds <- vfold_cv(ca_train, v = 4)
 
 ```
 
-```{r boost_spec, include = FALSE}
+```{r boost_spec, include = FALSE, cache = TRUE}
 
 boost_spec <- boost_tree(
 trees = 500,
@@ -654,7 +654,7 @@ A map of the predictions on the testing data:
 ```{r predict_map, echo = FALSE}
 ggmap(ca_map) + 
   geom_point(aes(longitude, latitude, color = .pred), data = boost_predictions) + 
-  scale_color_viridis_c(option = "viridis", labels = c("0", "200000", "300000", "400000", "500000"))
+  scale_color_viridis_c(option = "viridis")
 ```
 
 A map of the residuals from the predictions:
