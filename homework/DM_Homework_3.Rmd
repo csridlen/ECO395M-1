@@ -2,22 +2,22 @@
 title: "Homework 3"
 author: "Christina Ridlen"
 date: "`r Sys.Date()`"
-output: md_document
+output: html_document
 ---
 
 ```{r libraries, include = FALSE}
 library(tidymodels)
 library(tidyverse)
-library(rpart.plot)
-library(pdp)
 library(glmnet)
+library(DALEXtra)
+library(ggmap)
 setwd("C:/Users/tinar/ECO395M-Homework/homework")
 ```
 
 # What causes what?
 
 1.  The regression estimates will be highly biased because the correlation between crime and number of police in a city is extremely high. We could not establish causality with this regression.
-2.  The researchers from UPenn found a scenario in which number of police is *not* caused by crime rate. Specifically, in Washington, D.C., the city is on "High Alert" if the risk of terrorism at the time is high. Thus the number of police stationed in the city is high and unrelated to hte actual level of crime that occurs. Their regression shows that when policy presence is high, the crime level decreases.
+2.  The researchers from UPenn found a scenario in which number of police is *not* caused by crime rate. Specifically, in Washington, D.C., the city is on "High Alert" if the risk of terrorism at the time is high. Thus the number of police stationed in the city is high and unrelated to the actual level of crime that occurs. Their regression shows that when policy presence is high, the crime level decreases.
 3.  The researchers controlled for the possibility that people might not be outside in the D.C. area during High Alert times. In Table 2, they find that even after controlling for number of people active in the city, the level of crime still decreases at a significant level when police presence is high.
 4.  
 
@@ -33,6 +33,17 @@ dengue$city <- factor(dengue$city)
 dengue$season <- factor(dengue$season)
 ```
 
+```{r dengue_fix, include = FALSE}
+# Train-test split
+set.seed(1)
+dengue_split <- initial_split(dengue, prop = 0.8, strata = total_cases)
+dengue_train <- training(dengue_split)
+dengue_test <- testing(dengue_split)
+
+# Folds for cross validation
+folds <- vfold_cv(dengue_train, v = 10)
+```
+
 ```{r CART, include = FALSE}
 
 # Create regression tree
@@ -40,11 +51,6 @@ cart_spec <- decision_tree() %>%
   set_mode("regression") %>%
   set_engine("rpart")
 
-
-# Train-test split
-dengue_split <- initial_split(dengue, prop = 0.8, strata = total_cases)
-dengue_train <- training(dengue_split)
-dengue_test <- testing(dengue_split)
 
 # Choose best model
 tune_spec <- decision_tree(tree_depth = tune(),
@@ -58,7 +64,7 @@ tree_grid <- grid_regular(parameters(tune_spec),
 tree_grid
 
 # Tune along the grid
-folds <- vfold_cv(dengue_train, v = 10)
+
 tune_results <- tune_grid(tune_spec,
                           total_cases ~ .,
                           resamples = folds,
@@ -81,7 +87,7 @@ view(final_params)
 in_dengue_cart <- predict(cart_final, dengue_train) %>%
   bind_cols(dengue_train)
 
-rmse(in_dengue_cart,
+rmse_in_cart <- rmse(in_dengue_cart,
      estimate = .pred,
      truth = total_cases)
 
@@ -97,7 +103,7 @@ rmse_out_cart
 
 ### Comparisons
 
-The CART model was fit with the formula `total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt` using the training data. I used the `tidymodels` package and `rpart` engine to specify the decision tree. After fitting the model, I identified the optimal cost complexity and tree depth parameters that would minimize the RMSE through cross-validation. The model was then pruned so that the final decision tree used the optimal parameters `cp = 1e=-10` and `tree_depth =5`. Finally, the in-sample performance was calculated after cross-validation using the training data, and out-of-sample performance was calculated using the testing data.
+The CART model was fit with the formula `total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt` using the training data. I used the `tidymodels` package and `rpart` engine to specify the decision tree. After fitting the model, I identified the optimal cost complexity and tree depth parameters that would minimize the RMSE through cross-validation. The model was then pruned so that the final decision tree used the optimal parameters `cp = 1e=-04` and `tree_depth =5`. Finally, the in-sample performance was calculated after cross-validation using the training data, and out-of-sample performance was calculated using the testing data.
 
 To fit the random forests model, the same formula `total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt` was used on the training data. I calculated the in-sample and out-of-sample performances for this model. Fitting the boosted tree model was similar, and the in-sample and out-of-sample performances for the three models are summarized below.
 
@@ -120,7 +126,8 @@ rand_cv <- fit_resamples(rand_spec,
                          total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt,
                          resamples = folds,
                          metrics = metric_set(rmse))
-collect_metrics(rand_cv, summarize = TRUE)
+rmse_in_rand <- collect_metrics(rand_cv, summarize = TRUE)
+rmse_in_rand
 
 # Out-of-sample performance
 
@@ -149,9 +156,10 @@ boost_model <- fit(boost_spec,
 set.seed(100)
 boost_cv <- fit_resamples(boost_spec,
                             total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt,
-                            resamples = dengue_folds,
+                            resamples = folds,
                             metrics = metric_set(rmse))
-collect_metrics(boost_cv, summarize = TRUE)
+rmse_in_boost <- collect_metrics(boost_cv, summarize = TRUE)
+rmse_in_boost
 
 # Out of Sample
 out_dengue_boost <- predict(boost_model, dengue_test)  %>%
@@ -166,18 +174,48 @@ rmse_out_boost
 ```{r tree_table}
 # Create table listing in-sample and out of sample performance of tree models
 
-
+rmse_outs <- c(c(rmse_out_cart), c(rmse_out_rand), c(rmse_out_boost))
+rmse_ins <- c(c(rmse_in_cart), c(rmse_in_rand), c(rmse_in_boost))
 ```
+
+| Model   | Out-Of-Sample RMSE | In-Sample RMSE |
+|---------|--------------------|----------------|
+| CART    | 25.3               | 24.4           |
+| RF      | 24.3               | 26.21          |
+| Boosted | 27.8               | 28.2           |
+
+### Partial Dependence Plots
 
 The random forests model has the lowest out of sample RMSE. So we use this model for the partial dependence plots:
 
-```{r pdp_2, echo = FALSE}
+```{r pdp_1, echo = FALSE}
+# partial(model_rand, pred.var = c("precipitation_amt", "specific_humidity", "city"), train = dengue_train)
+# one-hot encoding
+data <- mltools::one_hot(data.table::data.table(dengue_train))
+library(ranger)
+model <- ranger(total_cases ~. -nvdi_sw -nvdi_ne - nvdi_nw - nvdi_se - air_temp_k - dewpoint_temp_k - max_air_temp_k - min_air_temp_k, data = data)
+explainer = DALEX::explain(model, data = data, y = data$total_cases)
+rf_precip <- model_profile(explainer = explainer, variables = c("precipitation_amt", "specific_humidity", "tdtr_k"), type = "partial")
 
+rf_spec <- model_profile(explainer = explainer, variables = "specific_humidity", type = "partial")
+
+rf_tdtr <- model_profile(explainer = explainer, variables = "tdtr_k", type = "partial")
+
+## Plot precip with ggplot
+as_tibble(rf_precip$agr_profiles) %>%
+  ggplot(aes(`_x_`, `_yhat_`)) + 
+  geom_line(size = 1.2, alpha = 0.8)
+
+## Plot spec with ggplot
 
 
 ```
 
-# Predictive model building: green certification
+```{r pdp_2, echo = FALSE}
+
+```
+
+# Green Certification
 
 ```{r green_data, include = FALSE}
 
@@ -306,8 +344,6 @@ lasso_coef
 lasso_coef["green_rating"]
 ```
 
-Without rent and leasing rate
-
 ```{r green_data_removed, include= FALSE}
 # Load data
 greenbuildings <- read_csv("../data/greenbuildings.csv")
@@ -431,19 +467,19 @@ lasso_coef
 lasso_coef["green_rating"]
 ```
 
-I then ran a lasso regression, since there seems to be high multicollinearity within many of the variables. The RMSE was high, but there was no longer evidence of overfitting. I then ran random forest and lasso regressions again, including `Rent` and `leasing_rate` in the regression.
+The RMSE was high, but there was no longer evidence of overfitting. I then ran random forest and lasso regressions again, including `Rent` and `leasing_rate` in the regression.
 
-+--------------------------------------------+--------------+--------------+
-| Model                                      | RMSE in      | RMSE out     |
-+============================================+==============+==============+
-| Lasso (with rent, leasing rate)            | 125          | 128          |
-+--------------------------------------------+--------------+--------------+
-| Lasso (without rent, leasing rate)         | 622          | 625          |
-+--------------------------------------------+--------------+--------------+
-| Random Forest (with rent, leasing rate)    | 72           | 86           |
-+--------------------------------------------+--------------+--------------+
-| Random Forest (without rent, leasing rate) | 288          | 710          |
-+--------------------------------------------+--------------+--------------+
++--------------------------------------------+-------------+-------------+
+| Model                                      | RMSE in     | RMSE out    |
++============================================+=============+=============+
+| Lasso (with rent, leasing rate)            | 125         | 128         |
++--------------------------------------------+-------------+-------------+
+| Lasso (without rent, leasing rate)         | 622         | 625         |
++--------------------------------------------+-------------+-------------+
+| Random Forest (with rent, leasing rate)    | 72          | 86          |
++--------------------------------------------+-------------+-------------+
+| Random Forest (without rent, leasing rate) | 288         | 710         |
++--------------------------------------------+-------------+-------------+
 
 What we notice in the table is that by excluding rent and leasing rate from the regression is that the variance of the estimates increases. This is obvious due to the overfitting of the random forest model even when R chooses the optimal tree depth and number of randomly selected predictors. The lasso regression performs similarly in and out of sample. But with the exclusion of rent and leasing rate, the model has a harder time predicting what the revenue per square foot of the building will be, so the variance increases. However, we can better isolate the effects of predictor variables that are not almost perfectly correlated with our response variable `revenue_sqft`. I include the lasso regression estimates both including and excluding rent and leasing rate:
 
@@ -461,4 +497,127 @@ I include the summary statistics of `revenue_sqft` for reference:
 summ <- c(summary(greenbuildings$revenue_sqft))
 summ_df <- data.frame(summ)
 knitr::kable(summ_df, caption = "Summary Statistics for Revenue per Square Foot per Calendar Year")
+```
+
+# California Housing
+
+```{r ca_data, include = FALSE}
+
+caHousing <- read_csv("../data/CAhousing.csv")
+
+# Average for total rooms by house
+caHousing <- caHousing %>%
+ mutate(avgRooms = round((totalRooms/households)),
+        avgBedrooms = round(totalBedrooms/households))
+
+# Drop totals
+caHousing <- subset(caHousing, select = -c(totalRooms, totalBedrooms))
+
+# Train-test split
+ca_split <- initial_split(caHousing, prop = 0.8, strata = medianHouseValue)
+ca_train <- training(ca_split)
+ca_test <- testing(ca_split)
+
+glimpse(caHousing)
+
+# Create folds for cross-validation
+folds <- vfold_cv(ca_train, v = 4)
+
+```
+
+```{r boost_spec, include = FALSE}
+
+boost_spec <- boost_tree(
+trees = 500,
+learn_rate = tune(),
+tree_depth = tune(),
+sample_size = tune()) %>%
+set_mode("regression") %>%
+set_engine("xgboost")
+
+
+tunegrid_boost <- grid_regular(parameters(boost_spec),
+levels = 2) #to shorten time
+
+tune_results <- tune_grid(boost_spec,
+                          medianHouseValue ~ . - longitude - latitude,
+                          resamples = folds, 
+                          grid = tunegrid_boost,
+                          metrics = metric_set(rmse))
+
+# Select best
+best_boost_params <- select_best(tune_results)
+final_boost_spec <- finalize_model(boost_spec, best_boost_params)
+boost_model <- final_boost_spec %>% fit(formula = medianHouseValue ~ . - longitude - latitude, data = ca_train)
+
+best_boost_params
+boost_model
+
+# CV in-sample performance
+cv_boost <- fit_resamples(final_boost_spec,
+                          medianHouseValue ~ . - longitude - latitude,
+                          resamples = folds,
+                          metrics = metric_set(rmse))
+
+collect_metrics(cv_boost)
+
+# Out-of-sample performance
+boost_predictions <- boost_model %>%
+  predict(ca_test) %>%
+  bind_cols(ca_test)
+
+rmse_out_boost <- rmse(boost_predictions,
+                       estimate = .pred,
+                       truth = medianHouseValue)
+rmse_out_boost
+```
+
+```{r stepwise_ca, include = FALSE}
+
+baseline_model <- lm(medianHouseValue ~ . - longitude - latitude, data = ca_train)
+
+# stepwise selection
+model_step <- stats::step(baseline_model, 
+                   scope = ~(. - longitude - latitude)^2)
+
+getCall(model_step)
+coef(model_step)
+
+modelr::rmse(model_step, ca_train)
+modelr::rmse(model_step, ca_test)
+```
+
+For choosing the best predictive model, the two options that seemed most useful were gradient boosting or stepwise selection. The small number of predictors meant gradient boosting would run less of a risk of overfitting. However, stepwise selection seemed right for predicting house value because of the high possibility of interactions between variables that I can't see myself. To find the best predictive model, I compare the performance of a gradient boosted tree to a stepwise model.
+
+### Boosted Tree
+
+### Stepwise Selection
+
+To summarize the results:
+
+| Model              | In-Sample Performance | Out-of-sample Performance |
+|--------------------|-----------------------|---------------------------|
+| Boosted Tree       | 70591                 | 71379                     |
+| Stepwise selection | 72923                 | 777602                    |
+
+Clearly, the boosted tree performs better than the stepwise model.
+
+## Mapping the results
+
+```{r resids, include = FALSE}
+boost_predictions <- boost_predictions %>%
+  mutate(resids = medianHouseValue - .pred)
+```
+
+```{r first_map, echo = FALSE}
+ca_map <- get_map(location = 'california', zoom = 6, maptype = "roadmap")
+
+ggmap(ca_map) + 
+  geom_point(aes(longitude, latitude, color = medianHouseValue), data = caHousing)
+```
+
+```{r predict_map}
+ggmap(ca_map) + 
+  geom_point(aes(longitude, latitude, color = .pred), data = boost_predictions) + 
+  scale_color_viridis_c(option = "viridis")
 ```
