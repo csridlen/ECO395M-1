@@ -220,8 +220,8 @@ as_tibble(rf_precip$agr_profiles) %>%
   ggplot(aes(`_x_`, `_yhat_`)) + 
   geom_line(size = 1.2, alpha = 0.8) +
   labs(title = "Partial dependence of total cases on precipitation amount",
-       xlab = "Precipitation Amount",
-       ylab = "Predicted number of cases")
+       x = "Precipitation Amount",
+       y = "Predicted number of cases")
 
 ```
 
@@ -231,8 +231,8 @@ as_tibble(rf_spec$agr_profiles) %>%
   ggplot(aes(`_x_`, `_yhat_`)) + 
   geom_line(size = 1.2, alpha = 0.8) + 
   labs(title = "Partial dependence of total cases on specific humidity",
-       xlab = "Specific humidity",
-       ylab = "Predicted number of cases")
+       x = "Specific humidity",
+       y = "Predicted number of cases")
 
 ```
 
@@ -242,8 +242,8 @@ as_tibble(rf_tdtr$agr_profiles) %>%
   ggplot(aes(`_x_`, `_yhat_`)) + 
   geom_line(size = 1.2, alpha = 0.8) + 
   labs(title = "Partial dependence of total cases on average DTR",
-       xlab = "Average Diurnal Temperature Range",
-       ylab = "Predicted number of cases")
+       x = "Average Diurnal Temperature Range",
+       y = "Predicted number of cases")
 ```
 
 The final plot shows the partial dependence of total cases on average DTR, or Average Diurnal Temperature Range for the week. The other partial dependence plots show an obvious upward trend, while DTR shows a dip as temperature range increases. This is probably because temperature does not change much when it is humid. There is a slight increase at the upper end of the x axis, which may be because heavy rain can cool down temperatures. The results from the partial dependence plot provide more insight into which specific conditions will result in higher dengue cases.
@@ -634,8 +634,7 @@ modelr::rmse(model_step, ca_test)
 
 For choosing the best predictive model, the two options that seemed most useful were gradient boosting or stepwise selection. The small number of predictors meant gradient boosting would run less of a risk of overfitting. However, stepwise selection seemed right for predicting house value because of the high possibility of interactions between variables that I can't see myself. To find the best predictive model, I compare the performance of a gradient boosted tree to a stepwise model.
 
-The baseline model for stepwise selection was `lm(medianHouseValue ~ . - longitude - latitude, data = ca_train).`
-
+The baseline model for stepwise selection was a linear regression of median house value on all variables excluding location coordinates.
 I then created an aribitrary boost specification and found optimal hyperparameters using the `tune()` function and a tuning grid. This approach uses cross-validation to find the best possible boosted model. The optimal parameters selected were:
 
 ```{r boost_params, echo = FALSE}

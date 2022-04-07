@@ -288,10 +288,9 @@ house value because of the high possibility of interactions between
 variables that I can’t see myself. To find the best predictive model, I
 compare the performance of a gradient boosted tree to a stepwise model.
 
-The baseline model for stepwise selection was
-`lm(medianHouseValue ~ . - longitude - latitude, data = ca_train).`
-
-I then created an aribitrary boost specification and found optimal
+The baseline model for stepwise selection was a linear regression of
+median house value on all variables excluding location coordinates. I
+then created an aribitrary boost specification and found optimal
 hyperparameters using the `tune()` function and a tuning grid. This
 approach uses cross-validation to find the best possible boosted model.
 The optimal parameters selected were:
