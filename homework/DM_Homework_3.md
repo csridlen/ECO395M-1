@@ -52,28 +52,22 @@ reserved for a final comparison of out-of-sample performance.
 
 ### Comparisons
 
-The CART model was fit with the formula
-`total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt`
-using the training data. I used the `tidymodels` package and `rpart`
-engine to specify the decision tree. After fitting the model, I
-identified the optimal cost complexity and tree depth parameters that
-would minimize the RMSE through cross-validation. The model was then
-pruned so that the final decision tree used the optimal parameters
-`cp = 1e=-04` and `tree_depth =5`. Finally, the in-sample performance
-was calculated after cross-validation using the training data, and
-out-of-sample performance was calculated using the testing data.
+The CART model was fit using a regression of total cases in the week on
+city, season and meteorological variables using the training data. I
+used the `tidymodels` package and `rpart` engine to specify the decision
+tree. After fitting the model, I identified the optimal cost complexity
+and tree depth parameters that would minimize the RMSE through
+cross-validation. The model was then pruned so that the final decision
+tree used the optimal parameters `cp = 1e=-04` and `tree_depth =5`.
+Finally, the in-sample performance was calculated after cross-validation
+using the training data, and out-of-sample performance was calculated
+using the testing data.
 
-To fit the random forests model, the same formula
-`total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt`
-was used on the training data. I calculated the in-sample and
-out-of-sample performances for this model. Fitting the boosted tree
+The same regression that was used in the CART model also is used to fit
+the random forest and boosted tree models. I calculated the in-sample
+and out-of-sample performances for this model. Fitting the boosted tree
 model was similar, and the in-sample and out-of-sample performances for
 the three models are summarized below.
-
-    # Create table listing in-sample and out of sample performance of tree models
-
-    rmse_outs <- c(c(rmse_out_cart), c(rmse_out_rand), c(rmse_out_boost))
-    rmse_ins <- c(c(rmse_in_cart), c(rmse_in_rand), c(rmse_in_boost))
 
 <table>
 <thead>
@@ -107,26 +101,21 @@ the three models are summarized below.
 The random forests model has the lowest out of sample RMSE. So we use
 this model for the partial dependence plots:
 
-    ## Warning in terms.formula(f, data = data): 'varlist' has changed (from nvar=21)
-    ## to new 26 after EncodeVars() -- should no longer happen!
+![](DM_Homework_3_files/figure-markdown_strict/pdp_1-1.png)
 
-    ## Preparation of a new explainer is initiated
-    ##   -> model label       :  ranger  (  default  )
-    ##   -> data              :  992  rows  21  cols 
-    ##   -> target variable   :  992  values 
-    ##   -> predict function  :  yhat.ranger  will be used (  default  )
-    ##   -> predicted values  :  No value for predict function target column. (  default  )
-    ##   -> model_info        :  package ranger , ver. 0.13.1 , task regression (  default  ) 
-    ##   -> predicted values  :  numerical, min =  0.8577363 , mean =  21.28024 , max =  181.4947  
-    ##   -> residual function :  difference between y and yhat (  default  )
-    ##   -> residuals         :  numerical, min =  -38.66756 , mean =  -0.4808413 , max =  153.7245  
-    ##   A new explainer has been created!
+![](DM_Homework_3_files/figure-markdown_strict/pdp_2-1.png)
 
-![](DM_Homework_3_files/figure-markdown_strict/pdp_1-1.png)![](DM_Homework_3_files/figure-markdown_strict/pdp_1-2.png)![](DM_Homework_3_files/figure-markdown_strict/pdp_1-3.png)
+![](DM_Homework_3_files/figure-markdown_strict/pdp_3-1.png)
+
 The final plot shows the partial dependence of total cases on average
-DTR, or Average Diurnal Temperature Range for the week. It seems that
-all of these variables are significant in predicting total cases of
-dengue fever in a given week.
+DTR, or Average Diurnal Temperature Range for the week. The other
+partial dependence plots show an obvious upward trend, while DTR shows a
+dip as temperature range increases. This is probably because temperature
+does not change much when it is humid. There is a slight increase at the
+upper end of the x axis, which may be because heavy rain can cool down
+temperatures. The results from the partial dependence plot provide more
+insight into which specific conditions will result in higher dengue
+cases.
 
 # Green Certification
 
@@ -153,41 +142,14 @@ out-of-sample RMSE was more than twice the RMSE of the in-sample
 predictions. I then ran the Random Forest model again, this time
 including rent and leasing rate, to see what the issue was:
 
-    ## Warning: `parameters.model_spec()` was deprecated in tune 0.1.6.9003.
-    ## Please use `hardhat::extract_parameter_set_dials()` instead.
-
-    ## ! Fold1: preprocessor 1/1, model 2/4: 24 columns were requested but there were 23...
-
-    ## ! Fold1: preprocessor 1/1, model 4/4: 24 columns were requested but there were 23...
-
-    ## ! Fold2: preprocessor 1/1, model 2/4: 24 columns were requested but there were 23...
-
-    ## ! Fold2: preprocessor 1/1, model 4/4: 24 columns were requested but there were 23...
-
-    ## ! Fold3: preprocessor 1/1, model 2/4: 24 columns were requested but there were 23...
-
-    ## ! Fold3: preprocessor 1/1, model 4/4: 24 columns were requested but there were 23...
-
-    ## ! Fold4: preprocessor 1/1, model 2/4: 24 columns were requested but there were 23...
-
-    ## ! Fold4: preprocessor 1/1, model 4/4: 24 columns were requested but there were 23...
-
-    ## ! Fold5: preprocessor 1/1, model 2/4: 24 columns were requested but there were 23...
-
-    ## ! Fold5: preprocessor 1/1, model 4/4: 24 columns were requested but there were 23...
-
-    ## Warning: 24 columns were requested but there were 23 predictors in the data. 23
-    ## will be used.
-
-![](DM_Homework_3_files/figure-markdown_strict/green_rf-1.png)
-
-The variable importance plot shows that `Rent` and `leasing_rate` are
+After fitting the random forests model, I created a variable importance
+plot, which confirmed that the rent and leasing rate variables were
 overwhelming any predictive power of the other variables. I perform a
 lasso regression next to allow R to select important variables itself.
 
 The RMSE was high, but there was no longer evidence of overfitting. I
-then ran random forest and lasso regressions again, including `Rent` and
-`leasing_rate` in the regression.
+then ran random forest and lasso regressions again, including rent and
+leasing rate in the regression.
 
 <table style="width:99%;">
 <colgroup>
@@ -266,52 +228,49 @@ per square foot (per calendar year) by $194.
 I include the summary statistics of `revenue_sqft` for reference:
 
 <table>
-<caption>Summary Statistics for Revenue per Square Foot per Calendar Year</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;"></th>
-<th style="text-align: right;">summ</th>
+<th style="text-align: right;">Value</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">Min.</td>
-<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">1st Qu.</td>
-<td style="text-align: right;">1500.000</td>
+<td style="text-align: right;">1500</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Median</td>
-<td style="text-align: right;">2141.000</td>
+<td style="text-align: right;">2141</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Mean</td>
-<td style="text-align: right;">2406.163</td>
+<td style="text-align: right;">2406</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">3rd Qu.</td>
-<td style="text-align: right;">3000.000</td>
+<td style="text-align: right;">3000</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Max.</td>
-<td style="text-align: right;">24960.000</td>
+<td style="text-align: right;">24960</td>
 </tr>
 </tbody>
 </table>
-
-Summary Statistics for Revenue per Square Foot per Calendar Year
 
 # California Housing
 
 Here, we are working with data on residential housing in the state of
 California. Each observation comes from a census tract, or a Census
 Bureau defined neighborhood. The dataset includes the latitude and
-longitude of each census tract, demographical statistics related to
-income and population, and information on the houses themselves. I build
-the best predictive model for determining house prices in California
-given the information from the census data.
+longitude of each census tract, demographic statistics related to income
+and population, and information on the houses themselves. I build the
+best predictive model for determining house prices in California given
+the information from the census data.
 
 ## Working with the data
 
@@ -340,9 +299,9 @@ The optimal parameters selected were:
 <table>
 <thead>
 <tr class="header">
-<th style="text-align: right;">tree_depth</th>
-<th style="text-align: right;">learn_rate</th>
-<th style="text-align: right;">sample_size</th>
+<th style="text-align: right;">Tree Depth</th>
+<th style="text-align: right;">Learn Rate</th>
+<th style="text-align: right;">Sample Size</th>
 </tr>
 </thead>
 <tbody>
@@ -387,11 +346,7 @@ Clearly, the boosted tree performs better than the stepwise model.
 Using the `ggmap` package, we can visualize the results on an actual map
 of California.
 
-    ## Source : https://maps.googleapis.com/maps/api/staticmap?center=california&zoom=6&size=640x640&scale=2&maptype=roadmap&language=en-EN&key=xxx-MDl0opBQIMh-Tb0AiiFdFak
-
-    ## Source : https://maps.googleapis.com/maps/api/geocode/json?address=california&key=xxx-MDl0opBQIMh-Tb0AiiFdFak
-
-![](DM_Homework_3_files/figure-markdown_strict/first_map-1.png)
+![](DM_Homework_3_files/figure-markdown_strict/data_map-1.png)
 
 A map of the predictions on the testing data:
 
@@ -401,6 +356,6 @@ A map of the residuals from the predictions:
 
 ![](DM_Homework_3_files/figure-markdown_strict/resids_map-1.png)
 
-Looking at the residuals from the preditions on the test set, the model
+Looking at the residuals from the predictions on the test set, the model
 appears to have done a good job at predicting (except for some
 over-predictions).

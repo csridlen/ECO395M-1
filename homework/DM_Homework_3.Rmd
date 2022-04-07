@@ -11,12 +11,12 @@ library(tidyverse)
 library(glmnet)
 library(DALEXtra)
 library(ggmap)
-
 ```
 
 # What causes what?
 
 ## Overview
+
 Researchers from UPenn were interested in seeing if there was a causal relationship between police presence and crime *in that order*. They used "High Alert" notices in Washington D.C. as an instrumental variable for police presence, as police presence in this instance is related to a threat of terrorism rather than crime levels.
 
 1.  The regression estimates will be highly biased because the correlation between crime and number of police in a city is extremely high. We could not establish causality with this regression.
@@ -27,6 +27,7 @@ Researchers from UPenn were interested in seeing if there was a causal relations
 # Tree modeling: dengue cases
 
 ## Overview
+
 The goal here is to compare three tree-based models for predicting dengue fever in Latin America. Specifically, we want to predict total cases in two Latin American cities: San Juan, Puerto Rico and Iquitos, Peru. We will be comparing the predictive value of a CART, Random Forests, and Boosted Tree model.
 
 Our dataset contains variables related to the persistence of mosquito breeding and spreading in the area, which will be used as predictors. First, I created a train-test split of the data, and created folds for cross-validation from the training data. The testing data will be reserved for a final comparison of out-of-sample performance.
@@ -40,7 +41,6 @@ dengue <- dengue[complete.cases(dengue),]
 dengue$city <- factor(dengue$city)
 dengue$season <- factor(dengue$season)
 ```
-
 
 ```{r dengue_fix, include = FALSE}
 # Train-test split
@@ -112,9 +112,9 @@ rmse_out_cart
 
 ### Comparisons
 
-The CART model was fit with the formula `total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt` using the training data. I used the `tidymodels` package and `rpart` engine to specify the decision tree. After fitting the model, I identified the optimal cost complexity and tree depth parameters that would minimize the RMSE through cross-validation. The model was then pruned so that the final decision tree used the optimal parameters `cp = 1e=-04` and `tree_depth =5`. Finally, the in-sample performance was calculated after cross-validation using the training data, and out-of-sample performance was calculated using the testing data.
+The CART model was fit using a regression of total cases in the week on city, season and meteorological variables using the training data. I used the `tidymodels` package and `rpart` engine to specify the decision tree. After fitting the model, I identified the optimal cost complexity and tree depth parameters that would minimize the RMSE through cross-validation. The model was then pruned so that the final decision tree used the optimal parameters `cp = 1e=-04` and `tree_depth =5`. Finally, the in-sample performance was calculated after cross-validation using the training data, and out-of-sample performance was calculated using the testing data.
 
-To fit the random forests model, the same formula `total_cases ~ city + season + specific_humidity + tdtr_k + precipitation_amt` was used on the training data. I calculated the in-sample and out-of-sample performances for this model. Fitting the boosted tree model was similar, and the in-sample and out-of-sample performances for the three models are summarized below.
+The same regression that was used in the CART model also is used to fit the random forest and boosted tree models. I calculated the in-sample and out-of-sample performances for this model. Fitting the boosted tree model was similar, and the in-sample and out-of-sample performances for the three models are summarized below.
 
 ```{r random_forests, include = FALSE}
 # Specify model
@@ -180,7 +180,7 @@ rmse_out_boost <- rmse(out_dengue_boost,
 rmse_out_boost
 ```
 
-```{r tree_table}
+```{r tree_table, include = FALSE}
 # Create table listing in-sample and out of sample performance of tree models
 
 rmse_outs <- c(c(rmse_out_cart), c(rmse_out_rand), c(rmse_out_boost))
@@ -197,7 +197,7 @@ rmse_ins <- c(c(rmse_in_cart), c(rmse_in_rand), c(rmse_in_boost))
 
 The random forests model has the lowest out of sample RMSE. So we use this model for the partial dependence plots:
 
-```{r pdp_1, echo = FALSE}
+```{r pdp, include = FALSE}
 
 # one-hot encoding
 data <- mltools::one_hot(data.table::data.table(dengue_train))
@@ -210,26 +210,43 @@ rf_spec <- model_profile(explainer = explainer, variables = "specific_humidity",
 
 rf_tdtr <- model_profile(explainer = explainer, variables = "tdtr_k", type = "partial")
 
+
+
+```
+
+```{r pdp_1, echo = FALSE}
 ## Plot precip with ggplot
 as_tibble(rf_precip$agr_profiles) %>%
   ggplot(aes(`_x_`, `_yhat_`)) + 
   geom_line(size = 1.2, alpha = 0.8) +
-  labs(title = "Partial dependence of total cases on precipitation amount")
+  labs(title = "Partial dependence of total cases on precipitation amount",
+       xlab = "Precipitation Amount",
+       ylab = "Predicted number of cases")
 
+```
+
+```{r pdp_2, echo = FALSE}
 ## Plot spec with ggplot
 as_tibble(rf_spec$agr_profiles) %>%
   ggplot(aes(`_x_`, `_yhat_`)) + 
   geom_line(size = 1.2, alpha = 0.8) + 
-  labs("Partial dependence of total cases on specific humidity")
+  labs(title = "Partial dependence of total cases on specific humidity",
+       xlab = "Specific humidity",
+       ylab = "Predicted number of cases")
 
+```
+
+```{r pdp_3, echo = FALSE}
 ## Plot tdtr
 as_tibble(rf_tdtr$agr_profiles) %>%
   ggplot(aes(`_x_`, `_yhat_`)) + 
   geom_line(size = 1.2, alpha = 0.8) + 
-  labs(title = "Partial dependence of total cases on average DTR")
-
+  labs(title = "Partial dependence of total cases on average DTR",
+       xlab = "Average Diurnal Temperature Range",
+       ylab = "Predicted number of cases")
 ```
-The final plot shows the partial dependence of total cases on average DTR, or Average Diurnal Temperature Range for the week. It seems that all of these variables are significant in predicting total cases of dengue fever in a given week.
+
+The final plot shows the partial dependence of total cases on average DTR, or Average Diurnal Temperature Range for the week. The other partial dependence plots show an obvious upward trend, while DTR shows a dip as temperature range increases. This is probably because temperature does not change much when it is humid. There is a slight increase at the upper end of the x axis, which may be because heavy rain can cool down temperatures. The results from the partial dependence plot provide more insight into which specific conditions will result in higher dengue cases.
 
 # Green Certification
 
@@ -261,15 +278,18 @@ green_split <- initial_split(greenbuildings, prop = 0.8, strata = revenue_sqft)
 green_train <- training(green_split)
 green_test <- testing(green_split)
 ```
+
 ## Overview
+
 In this problem, we are working with a dataset related to commerical rental properties across the United States. There are 7894 properties in total, and 685 of these have been awarded a LEED or EnergyStar certification is being a "green building." The dataset contains 23 predictor variables, containing information on the buildings themselves and details about the surrounding area.
 
 The goal is to create the best predictive model for revenue per square foot per year, and to see how being green certified effects this outcome.
 
 ## Data and Results
+
 First, I created the revenue per square foot variable `revenue_sqft` by multiplying `Rent` and `leasing_rate`. In order to isolate the effects of all other predictor variables, I naturally removed these variables from the dataset. However, upon running a Random Forest regression, the out-of-sample RMSE was more than twice the RMSE of the in-sample predictions. I then ran the Random Forest model again, this time including rent and leasing rate, to see what the issue was:
 
-```{r green_rf, echo = FALSE, cache = TRUE}
+```{r green_rf, include = FALSE, cache = TRUE}
 rand_spec <- rand_forest(
   mtry = tune(),
   trees = 500,
@@ -319,7 +339,7 @@ rmse_out_rf <- rmse(pred_outsample,
 vip::vip(rand_model)
 ```
 
-The variable importance plot shows that `Rent` and `leasing_rate` are overwhelming any predictive power of the other variables. I perform a lasso regression next to allow R to select important variables itself.
+After fitting the random forests model, I created a variable importance plot, which confirmed that the rent and leasing rate variables were overwhelming any predictive power of the other variables. I perform a lasso regression next to allow R to select important variables itself.
 
 ```{r lasso_green, include = FALSE}
 
@@ -486,7 +506,7 @@ lasso_coef
 lasso_coef["green_rating"]
 ```
 
-The RMSE was high, but there was no longer evidence of overfitting. I then ran random forest and lasso regressions again, including `Rent` and `leasing_rate` in the regression.
+The RMSE was high, but there was no longer evidence of overfitting. I then ran random forest and lasso regressions again, including rent and leasing rate in the regression.
 
 +--------------------------------------------+------------+------------+
 | Model                                      | RMSE in    | RMSE out   |
@@ -508,23 +528,24 @@ What we notice in the table is that by excluding rent and leasing rate from the 
 | 0                                       | -26                                 | 194                                            |
 +-----------------------------------------+-------------------------------------+------------------------------------------------+
 
-So holding all else constant, having a green rating increases revenue per square foot (per calendar year) by $194.
+So holding all else constant, having a green rating increases revenue per square foot (per calendar year) by \$194.
 
 I include the summary statistics of `revenue_sqft` for reference:
 
 ```{r summ_table, echo = FALSE}
-summ <- c(summary(greenbuildings$revenue_sqft))
+summ <- round(c(summary(greenbuildings$revenue_sqft)))
 summ_df <- data.frame(summ)
-knitr::kable(summ_df, caption = "Summary Statistics for Revenue per Square Foot per Calendar Year")
+knitr::kable(summ_df, col.names = "Value")
 ```
 
 # California Housing
 
-Here, we are working with data on residential housing in the state of California. Each observation comes from a census tract, or a Census Bureau defined neighborhood. The dataset includes the latitude and longitude of each census tract, demographical statistics related to income and population, and information on the houses themselves. I build the best predictive model for determining house prices in California given the information from the census data.
+Here, we are working with data on residential housing in the state of California. Each observation comes from a census tract, or a Census Bureau defined neighborhood. The dataset includes the latitude and longitude of each census tract, demographic statistics related to income and population, and information on the houses themselves. I build the best predictive model for determining house prices in California given the information from the census data.
 
 ## Working with the data
 
 As always, I create a train-test split of the data and folds for cross-validation. However, two of our variables `totalRooms` and `totalBedrooms` represent total rooms and bedrooms *within* the census district, so I standardize these variables by the number of households in the district to turn them into averages.
+
 ```{r ca_data, include = FALSE}
 
 caHousing <- read_csv("../data/CAhousing.csv")
@@ -619,7 +640,7 @@ I then created an aribitrary boost specification and found optimal hyperparamete
 
 ```{r boost_params, echo = FALSE}
 best_boost_params <- data.frame(subset(best_boost_params, select = -c(.config)))
-knitr::kable(best_boost_params)
+knitr::kable(best_boost_params, col.names = c("Tree Depth", "Learn Rate", "Sample Size"))
 ```
 
 I also calculated the in-sample RMSE by cross validation, and the out-of-sample performance using the testing data. To summarize the results:
@@ -632,18 +653,22 @@ I also calculated the in-sample RMSE by cross validation, and the out-of-sample 
 Clearly, the boosted tree performs better than the stepwise model.
 
 ## Mapping the results
+
 Using the `ggmap` package, we can visualize the results on an actual map of California.
+
 ```{r resids, include = FALSE}
 boost_predictions <- boost_predictions %>%
   mutate(resids = medianHouseValue - .pred)
 ```
 
-```{r first_map, echo = FALSE}
+```{r first_map, include = FALSE}
 api <- "AIzaSyAkBLpObQN-MDl0opBQIMh-Tb0AiiFdFak"
 register_google(api)
 ca_map <- get_map(location = 'california', zoom = 6, maptype = "roadmap")
 
+```
 
+```{r data_map, echo = FALSE}
 ggmap(ca_map) + 
   geom_point(aes(longitude, latitude, color = medianHouseValue), data = caHousing) + 
   scale_color_viridis_c(option = "viridis", labels = c("0", "100000", "200000", "300000", "400000", "500000"))
@@ -654,7 +679,7 @@ A map of the predictions on the testing data:
 ```{r predict_map, echo = FALSE}
 ggmap(ca_map) + 
   geom_point(aes(longitude, latitude, color = .pred), data = boost_predictions) + 
-  scale_color_viridis_c(option = "viridis")
+  scale_color_viridis_c(option = "viridis", labels = c("0", "100000", "200000", "300000", "400000", "500000"))
 ```
 
 A map of the residuals from the predictions:
@@ -665,4 +690,4 @@ ggmap(ca_map) +
   scale_color_viridis_c(option = "viridis", labels = c("-500000," ,"-200000", "0", "200000", "500000"))
 ```
 
-Looking at the residuals from the preditions on the test set, the model appears to have done a good job at predicting (except for some over-predictions).
+Looking at the residuals from the predictions on the test set, the model appears to have done a good job at predicting (except for some over-predictions).
