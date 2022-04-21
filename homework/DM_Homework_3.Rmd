@@ -661,8 +661,7 @@ boost_predictions <- boost_predictions %>%
 ```
 
 ```{r first_map, include = FALSE}
-api <- "AIzaSyAkBLpObQN-MDl0opBQIMh-Tb0AiiFdFak"
-register_google(api)
+
 ca_map <- get_map(location = 'california', zoom = 6, maptype = "roadmap")
 
 ```
