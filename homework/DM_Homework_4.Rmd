@@ -1,0 +1,16 @@
+---
+title: "DM_Homework_4"
+author: "Christina Ridlen"
+date: "4/25/2022"
+output: html_document
+---
+```{r}
+
+```
+
+# Clustering and PCA
+
+```{r p1_data}
+wine <- read.csv("../data/wines.csv")
+```
+
