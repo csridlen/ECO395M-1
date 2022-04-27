@@ -4,6 +4,7 @@ author: "Christina Ridlen"
 date: "4/25/2022"
 output: html_document
 ---
+
 ```{r libraries, include = FALSE}
 library(stats)
 library(tidyverse)
@@ -11,18 +12,24 @@ library(RColorBrewer)
 ```
 
 # Problem 1: Clustering and PCA
+
 ## Overview
-The properties of 6500 different bottles of wine are included in the `wine` dataset. Along with 11 chemical properties, we have an indicator for whether the wine is red or white, and the quality of the wine, rated on a scale from 1-10. The goal here is to use unsupervised learning methods to categorize the information in the dataset. Additionally, we want to determine if the analysis can distinguish higher quality wines from lower quality ones. 
-## Clustering analysis
+
+The properties of 6500 different bottles of wine are included in the `wine` dataset. Along with 11 chemical properties, we have an indicator for whether the wine is red or white, and the quality of the wine, rated on a scale from 1-10. The goal here is to use unsupervised learning methods to categorize the information in the dataset. Additionally, we want to determine if the analysis can distinguish higher quality wines from lower quality ones.
+
+## Clustering Analysis
+
 First, I attempt to solve this problem through cluster analysis. Specifically, I will be using the K-means algorithm. I normalize the data with the `scale` function from the base R library. This function centers the numeric columns of the dataset. To see if this algorithm distinguishes reds from whites, I set the number of clusters to 2.
-```{r p1_data, include = FALSE}
+
+```{r wine_data, include = FALSE}
 wine <- read.csv("../data/wine.csv", header = TRUE)
 wine["id"] = c(1:6497)
+X <- scale(subset(wine, select = -c(color, quality, id)))
 ```
 
 ```{r kmeans_color, include = FALSE}
 # Scale variables
-X <- scale(subset(wine, select = -c(color, quality, id)))
+
 km.color <- kmeans(X, centers = 2, nstart = 20, iter.max = 50)
 
 # Join wine with cluster
@@ -60,6 +67,7 @@ plot(X,
      ylab = " ",
      pch = 20)
 ```
+
 Here we see that the algorithm almost perfectly distinguishes reds from whites. It only misses some whites that are similar to reds, so those white wines must have more sugar or more acidity.
 
 ```{r kmeans_wine, include = FALSE}
@@ -71,8 +79,15 @@ for (i in 1:15) {
   km.wine <- kmeans(X, centers = i, nstart = 20, iter.max = 50)
   wss[i] <- km.wine$tot.withinss
 }
+```
 
+```{r elbow_plot, echo = FALSE}
 plot(1:15, wss, type = "b")
+```
+
+The crook of the elbow seems to occur at 4, or the marginal value of the next k seems to peak at k = 4. This is something we can work with; consider there to be 4 types of wine: high quality red wine, high quality white wine, low quality red wine, and low quality white wine. I create a variable `color_quality`, which is an indicator of whether the wine is red or white and of high quality ($\geq$ 5) or low quality (\< 5), to distinguish these four types. The results are summarized in the two plots below. See the table for reference as to what the colors mean in the left plot.
+
+```{r kmeans_quality, include = FALSE}
 k <- 4
 
 
@@ -90,17 +105,92 @@ col_quality["id"] = c(1:6497)
 wine_4 <- merge(wine, col_quality)
 
 wine_4 <- wine_4 %>%
-  mutate(color_quality = ifelse(color = "red" & quality >= 5, 1, ifelse(color = "red" & quality < 5, 1, ifelse())))
+  mutate(color_quality = ifelse(color == "red" & quality >= 5, 1, ifelse(color == "red" & quality < 5, 2, ifelse(color == "white" & quality >= 5, 3, 4))))
+```
+
+```{r kmeans_quality_plots, echo = FALSE}
+
+par(mfrow = c(1,2))
+plot(X,
+     col = wine_4$color_quality,
+     main = "Four qualities of wine",
+     xlab = " ",
+     ylab = " ",
+pch = 20)
 
 plot(X,
-     col = wine_4,
-     main = "Four types of wine",
+     col = km.quality$cluster,
+     main = "K means with 4 clusters",
      xlab = " ",
-     ylab = " ")
+     ylab = " ",
+     pch = 20)
 ```
 
-```{r kmeans_plot1, echo = FALSE}
-qplot()
++-------------------------+-------------+---------------------+
+| Category Name           | Indicator   | Corresponding Color |
++=========================+=============+=====================+
+| High quality red wine   | 1           | Black               |
++-------------------------+-------------+---------------------+
+| Low quality red wine    | 2           | Red                 |
++-------------------------+-------------+---------------------+
+| High quality white wine | 3           | Green               |
++-------------------------+-------------+---------------------+
+| Low quality white wine  | 4           | Blue                |
++-------------------------+-------------+---------------------+
+
+It appears that K means is good at distinguishing high quality wine wines and goes half and half with the quality of red wine. It's possible that wine snobs consider all red wine to be high quality when a lot of it has characteristics of a low quality wine. Or, the wines that K-means considers to be high or low quality (based on chemical properties) is different than what wine snobs would consider to be high or low quality.
+
+## Principal Components Analysis
+
+
+```{r pr_wine, include = FALSE}
+pr.wine <- prcomp(X, scale = TRUE)
+summary(pr.wine)
+
+
+wine_rotation <- pr.wine$rotation %>%
+  as.data.frame() %>%
+  rownames_to_column('Chemical Component')
+```
+
+```{r sumtab, echo = FALSE}
+sum.pca <- summary(pr.wine)
+pca_importance <- function(x) {
+  vars <- x$sdev^2
+  vars <- vars/sum(vars)
+  rbind(`Standard deviation` = x$sdev, `Proportion of Variance` = vars, 
+      `Cumulative Proportion` = cumsum(vars))
+}
+
+knitr::kable(pca_importance(sum.pca))
 
 ```
 
+-   First 2 principal components explain about 50% of the cumulative variance in the dataset
+
+-   First 4 principal components explain about 80% of the cumulative variance in the dataset
+```{r pr_comp_wine, include = FALSE}
+pr.wine$rotation <- -1*pr.wine$rotation
+pr.wine$rotation
+
+
+wine <- wine %>%
+  mutate(color_quality = ifelse(color == "red" & quality >= 5, 1, ifelse(color == "red" & quality < 5, 2, ifelse(color == "white" & quality >= 5, 3, 4))))
+
+
+```
+
+```{r qplot_wine_pca, include = FALSE}
+wine <- merge(wine, pr.wine$x[, 1:11], by = "row.names")
+wine = subset(wine, select = -c(Row.names))
+
+qplot(pr.wine$x[, 1], 
+      pr.wine$x[, 2], 
+      color = wine$color, 
+      xlab = "PC 1", 
+      ylab = "PC 2")
+```
+
+Clustering works better here for distinguishing reds with whites. The process is much more simple and pretty efficient at characterizing the wines. 
+```{r pr_plot_wine, echo = FALSE}
+```
