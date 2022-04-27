@@ -4,13 +4,103 @@ author: "Christina Ridlen"
 date: "4/25/2022"
 output: html_document
 ---
-```{r}
+```{r libraries, include = FALSE}
+library(stats)
+library(tidyverse)
+library(RColorBrewer)
+```
+
+# Problem 1: Clustering and PCA
+## Overview
+The properties of 6500 different bottles of wine are included in the `wine` dataset. Along with 11 chemical properties, we have an indicator for whether the wine is red or white, and the quality of the wine, rated on a scale from 1-10. The goal here is to use unsupervised learning methods to categorize the information in the dataset. Additionally, we want to determine if the analysis can distinguish higher quality wines from lower quality ones. 
+## Clustering analysis
+First, I attempt to solve this problem through cluster analysis. Specifically, I will be using the K-means algorithm. I normalize the data with the `scale` function from the base R library. This function centers the numeric columns of the dataset. To see if this algorithm distinguishes reds from whites, I set the number of clusters to 2.
+```{r p1_data, include = FALSE}
+wine <- read.csv("../data/wine.csv", header = TRUE)
+wine["id"] = c(1:6497)
+```
+
+```{r kmeans_color, include = FALSE}
+# Scale variables
+X <- scale(subset(wine, select = -c(color, quality, id)))
+km.color <- kmeans(X, centers = 2, nstart = 20, iter.max = 50)
+
+# Join wine with cluster
+col_cluster <- data.frame(km.color$cluster)
+col_cluster["id"] = c(1:6497)
+wine_2 <- merge(wine, col_cluster)
+
+### Summarize the two clusters
+# Summarize one cluster
+wine_2 %>%
+  filter(km.color.cluster == 1) %>%
+  group_by(color) %>%
+  summarize(n = n())
+
+# Summarize other cluster
+wine_2 %>%
+  filter(km.color.cluster == 2) %>%
+  group_by(color) %>%
+  summarize(n = n())
 
 ```
 
-# Clustering and PCA
+```{r plot_colorkm, echo = FALSE}
+par(mfrow = c(1,2), bg = 'gray')
+plot(X, 
+     col = km.color$cluster,
+     main = "K-Means with two clusters", 
+     xlab = " ", 
+     ylab = " ", pch = 20)
 
-```{r p1_data}
-wine <- read.csv("../data/wines.csv")
+plot(X,
+     col = wine$color,
+     main = "Wine data by color of wine", 
+     xlab = " ", 
+     ylab = " ",
+     pch = 20)
+```
+Here we see that the algorithm almost perfectly distinguishes reds from whites. It only misses some whites that are similar to reds, so those white wines must have more sugar or more acidity.
+
+```{r kmeans_wine, include = FALSE}
+
+# Find number of clusters
+wss <- 0
+set.seed(123)
+for (i in 1:15) {
+  km.wine <- kmeans(X, centers = i, nstart = 20, iter.max = 50)
+  wss[i] <- km.wine$tot.withinss
+}
+
+plot(1:15, wss, type = "b")
+k <- 4
+
+
+# Now run kmeans with centers = 4
+km.quality <- kmeans(X, centers = 4, nstart = 20, iter.max = 50)
+km.quality
+plot(X, col = km.quality$cluster, main = "K-means with 4 clusters", xlab = " ", ylab = " ", pch = 20)
+
+# Let's assume 4 clusters are high and low quality red and white.
+
+# Create indicator for high quality white/red, low quality white/red
+
+col_quality <- data.frame(km.quality$cluster)
+col_quality["id"] = c(1:6497)
+wine_4 <- merge(wine, col_quality)
+
+wine_4 <- wine_4 %>%
+  mutate(color_quality = ifelse(color = "red" & quality >= 5, 1, ifelse(color = "red" & quality < 5, 1, ifelse())))
+
+plot(X,
+     col = wine_4,
+     main = "Four types of wine",
+     xlab = " ",
+     ylab = " ")
+```
+
+```{r kmeans_plot1, echo = FALSE}
+qplot()
+
 ```
 
