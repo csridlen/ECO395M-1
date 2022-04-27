@@ -191,6 +191,10 @@ qplot(pr.wine$x[, 1],
       ylab = "PC 2")
 ```
 
-Clustering works better here for distinguishing reds with whites. The process is much more simple and pretty efficient at characterizing the wines. 
-```{r pr_plot_wine, echo = FALSE}
-```
+Clustering works better here for distinguishing reds with whites. The process is much more simple and pretty efficient at characterizing the wines. PCA is much harder to interpret because it is difficult to visualize more than two components at once with over 6500 observations. However, PCA suggests that the four clusters found in K-means are most explanatory of the data. This might confirm the "four-types" hypothesis I proposed from K-means. 
+
+
+# Market Segmentation
+
+
+
