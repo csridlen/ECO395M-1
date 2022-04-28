@@ -8,7 +8,9 @@ output: html_document
 ```{r libraries, include = FALSE}
 library(stats)
 library(tidyverse)
-library(RColorBrewer)
+library(factoextra)
+library(ggpubr)
+setwd("C:/Users/tinar/ECO395M-Homework/homework")
 ```
 
 # Problem 1: Clustering and PCA
@@ -69,6 +71,8 @@ plot(X,
 ```
 
 Here we see that the algorithm almost perfectly distinguishes reds from whites. It only misses some whites that are similar to reds, so those white wines must have more sugar or more acidity.
+
+### Choosing the right number of clusters
 
 ```{r kmeans_wine, include = FALSE}
 
@@ -142,7 +146,6 @@ It appears that K means is good at distinguishing high quality wine wines and go
 
 ## Principal Components Analysis
 
-
 ```{r pr_wine, include = FALSE}
 pr.wine <- prcomp(X, scale = TRUE)
 summary(pr.wine)
@@ -169,6 +172,7 @@ knitr::kable(pca_importance(sum.pca))
 -   First 2 principal components explain about 50% of the cumulative variance in the dataset
 
 -   First 4 principal components explain about 80% of the cumulative variance in the dataset
+
 ```{r pr_comp_wine, include = FALSE}
 pr.wine$rotation <- -1*pr.wine$rotation
 pr.wine$rotation
@@ -191,10 +195,96 @@ qplot(pr.wine$x[, 1],
       ylab = "PC 2")
 ```
 
-Clustering works better here for distinguishing reds with whites. The process is much more simple and pretty efficient at characterizing the wines. PCA is much harder to interpret because it is difficult to visualize more than two components at once with over 6500 observations. However, PCA suggests that the four clusters found in K-means are most explanatory of the data. This might confirm the "four-types" hypothesis I proposed from K-means. 
+Clustering works better here for distinguishing reds with whites. The process is much more simple and pretty efficient at characterizing the wines. PCA is much harder to interpret because it is difficult to visualize more than two components at once with over 6500 observations. However, PCA suggests that the four clusters found in K-means are most explanatory of the data. This might confirm the "four-types" hypothesis I proposed from K-means.
+
+# Problem 2: Market Segmentation
+
+## Overview
+
+## Organizing Followers by Tweets
+
+```{r market_segmentation_data, include = FALSE}
+social_marketing <- read.csv("../data/social_marketing.csv")
+glimpse(social_marketing)
+X <- subset(social_marketing, select = -X)
+
+# Normalize phrase counts to phrase frequencies
+X <- X/rowSums(X)
+```
+
+In terms of what we will do with the data, we have to find a suitable unsupervised method. Clustering makes the most sense here because we don't know much about the relationship between the categories. Understanding the components would be really tough. Similarly, in customer data a hierarchical model might not work as well for interpretability; there are too many observations. So, I proceed with K-means.
+
+First, I normalize tweet counts as tweet *frequencies* to scale the observations for cluster analysis. To find the optimal number of clusters $k$ I produce a scree plot, or a plot showing the improvement in the within-sum-of-squares of the clusters as the number of clusters increases. I use the "elbow test," or I try to find the number of $k$ in the plot where there is a "crook" in the elbow.
+
+```{r kmeans_market, include = FALSE}
+# Focus on top 10 categories
+# X <- subset(X[, names(top_10)], select = -chatter)
+
+wss <- 0
+set.seed(123)
+for (i in 1:11) {
+  km.social <- kmeans(X, centers = i, nstart = 20, iter.max = 50)
+  wss[i] <- km.social$tot.withinss
+}
+```
+
+```{r elbow_2, echo = FALSE}
+plot(1:11, wss, type = 'b')
+```
+
+The scree plot indicates we should use two clusters.
+
+### K-means with 2 clusters
+
+Since there are so many observations and overlap within accounts, plotting the data was not very useful.
+
+```{r social_km2, include = FALSE}
+
+km.social <- kmeans(X, centers = 2, nstart = 20, iter.max = 50)
 
 
-# Market Segmentation
+# Merge with clusters
+X_clust <- rename(merge(X, km.social$cluster, by = "row.names"), cluster = y)
 
 
+X_tbl <- X_clust %>%
+  group_by(cluster) %>%
+  select(-Row.names) %>%
+  summarize_all(mean) %>%
+  select(-c(cluster, chatter, uncategorized))
+  
+X_tbl <- as.data.frame(t(as.data.frame(X_tbl)))
 
+X_tbl <- tibble::rownames_to_column(X_tbl)
+
+colnames(X_tbl) <- c("Category", "cluster_1", "cluster_2") 
+
+X_tbl$Category = as.factor(X_tbl$Category)
+
+X_tbl <- X_tbl %>%
+mutate(top_categoryc1 = ifelse(cluster_1 %in% head(sort(X_tbl$cluster_1, decreasing = TRUE), 5), TRUE, FALSE),
+       top_categoryc2 = ifelse(cluster_2 %in% head(sort(X_tbl$cluster_2, decreasing = TRUE), 5), TRUE, FALSE))
+
+
+p1 <- ggplot(X_tbl) + 
+  geom_col(aes(x = Category, y = cluster_1, fill = top_categoryc1), show.legend = FALSE) + coord_flip() + 
+  ylab("Average Frequency of Tweets") + 
+  ggtitle("Cluster 1") + 
+  scale_fill_manual(values = c("#999999", "#FF9999"))
+
+p2 <- ggplot(X_tbl) + 
+  geom_col(aes(x = Category, y = cluster_2, fill = top_categoryc2), show.legend = FALSE) + coord_flip() + 
+  ggtitle("Cluster 2") + 
+  ylab("Average Frequency of Tweets") + 
+  scale_fill_manual(values = c("#999999", "#FF9999"))
+  
+figure <- ggarrange(p1, 
+                    p2,
+                    ncol = 2,
+                    nrow = 1)  
+figure  
+```
+
+It appears that we can categorize NutrientH20's followers into two categories by their tweets' categorical frequencies. In cluster 1, the top 5 tweet categories are photo sharing, personal fitness, outdoors, health/nutrition, and cooking. These seem like the types of people that the account can market to by promoting the health and fitness benefits of the drink. Maybe they can post a picture of someone hiking with their NutrientH20 drink!
+
+In cluster 2, the top categories are travel, sports, politics, photo sharing, and current events. These are also probably the top categories for young men on Twitter in general. To market to this audience, NutrientH20 should just try to stay relevant in Twitter culture. People in cluster 2 would totally buy NutrientH20 just because one of their funny tweets went viral.

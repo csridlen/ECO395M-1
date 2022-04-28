@@ -115,3 +115,4 @@ summary(lm2)
 plot(PE ~ fitted(lm1), data=shows)
 plot(GRP ~ fitted(lm2), data=shows)
 
+
