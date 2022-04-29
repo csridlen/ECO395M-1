@@ -10,6 +10,7 @@ library(stats)
 library(tidyverse)
 library(factoextra)
 library(ggpubr)
+library(arules)
 setwd("C:/Users/tinar/ECO395M-Homework/homework")
 ```
 
@@ -130,17 +131,12 @@ plot(X,
      pch = 20)
 ```
 
-+-------------------------+-------------+---------------------+
-| Category Name           | Indicator   | Corresponding Color |
-+=========================+=============+=====================+
-| High quality red wine   | 1           | Black               |
-+-------------------------+-------------+---------------------+
-| Low quality red wine    | 2           | Red                 |
-+-------------------------+-------------+---------------------+
-| High quality white wine | 3           | Green               |
-+-------------------------+-------------+---------------------+
-| Low quality white wine  | 4           | Blue                |
-+-------------------------+-------------+---------------------+
+| Category Name           | Indicator | Corresponding Color |
+|-------------------------|-----------|---------------------|
+| High quality red wine   | 1         | Black               |
+| Low quality red wine    | 2         | Red                 |
+| High quality white wine | 3         | Green               |
+| Low quality white wine  | 4         | Blue                |
 
 It appears that K means is good at distinguishing high quality wine wines and goes half and half with the quality of red wine. It's possible that wine snobs consider all red wine to be high quality when a lot of it has characteristics of a low quality wine. Or, the wines that K-means considers to be high or low quality (based on chemical properties) is different than what wine snobs would consider to be high or low quality.
 
@@ -288,3 +284,45 @@ figure
 It appears that we can categorize NutrientH20's followers into two categories by their tweets' categorical frequencies. In cluster 1, the top 5 tweet categories are photo sharing, personal fitness, outdoors, health/nutrition, and cooking. These seem like the types of people that the account can market to by promoting the health and fitness benefits of the drink. Maybe they can post a picture of someone hiking with their NutrientH20 drink!
 
 In cluster 2, the top categories are travel, sports, politics, photo sharing, and current events. These are also probably the top categories for young men on Twitter in general. To market to this audience, NutrientH20 should just try to stay relevant in Twitter culture. People in cluster 2 would totally buy NutrientH20 just because one of their funny tweets went viral.
+
+# Problem 3: Market Basket Analysis
+
+```{r p3_data, include = FALSE}
+
+groceries <- read_delim(
+  file = "../data/groceries.txt",
+  delim = "\t",
+  col_names = FALSE
+)
+groceries <- gsub(",([A-Za-z])",
+                  ", \\1",
+                  groceries$X1)
+groceries <- as.data.frame(groceries)
+groceries$basket = as.factor(c(1:9835))
+groceries <- split(x = groceries$groceries, f = groceries$basket)
+
+
+groceries <- as(groceries, "list")
+
+groceries[1]
+
+for(i in 1:length(groceries)) {
+  for(j in 1:length(groceries[i])) {
+    groceries[i] = list(groceries[i])
+    groceries[[i]][j] = groceries[[j]] 
+  }
+}
+```
+
+```{r data_ap, include = FALSE}
+
+basket_trans <- as(groceries, "transactions")
+summary(basket_trans)
+
+# apriori
+
+basketrules = apriori(basket_trans, 
+                      parameter = list(support = 0.001, confidence = 0.001,
+                           maxlen = 2))
+
+```
