@@ -11,6 +11,8 @@ library(tidyverse)
 library(factoextra)
 library(ggpubr)
 library(arules)
+library(RColorBrewer)
+library(htmlwidgets)
 setwd("C:/Users/tinar/ECO395M-Homework/homework")
 ```
 
@@ -294,35 +296,70 @@ groceries <- read_delim(
   delim = "\t",
   col_names = FALSE
 )
-groceries <- gsub(",([A-Za-z])",
-                  ", \\1",
-                  groceries$X1)
-groceries <- as.data.frame(groceries)
-groceries$basket = as.factor(c(1:9835))
-groceries <- split(x = groceries$groceries, f = groceries$basket)
 
-
-groceries <- as(groceries, "list")
-
-groceries[1]
-
-for(i in 1:length(groceries)) {
-  for(j in 1:length(groceries[i])) {
-    groceries[i] = list(groceries[i])
-    groceries[[i]][j] = groceries[[j]] 
+for(i in 1:length(groceries$X1)){
+  for(j in 1:length(groceries$X1[i])){
+    groceries$X1[[i]] = strsplit(groceries$X1[[i]], ",")
+    groceries$X1[[i]][[j]] = strsplit(groceries$X1[[i]][[j]], "''")
   }
 }
+
+groceries$basket = as.factor(c(1:9835))
+
+for(i in 1:length(groceries$X1)){
+  for(j in 1:length(groceries$X1[i]))
+  groceries$X1[i][[j]] = unlist(groceries$X1[i])
+}
+
+
+grocery_list <- groceries$X1
+names(grocery_list) <- as.factor(c(1:9835))
+
 ```
+
+Which items are the most frequent? The following table summarizes the 5 most popular items purchased.
 
 ```{r data_ap, include = FALSE}
 
-basket_trans <- as(groceries, "transactions")
+basket_trans <- as(grocery_list, "transactions")
 summary(basket_trans)
 
 # apriori
 
 basketrules = apriori(basket_trans, 
-                      parameter = list(support = 0.001, confidence = 0.001,
-                           maxlen = 2))
+                      parameter = list(support = 0.01, confidence = 0.2,
+                           minlen = 2, target = "rules"))
+inspect(basketrules)
 
+itemFrequencyPlot(basket_trans, topN = 5, col = rainbow(10), type = "absolute")
+
+# Find rules with the highest lifts
+
+inspect(head(sort(basketrules, by = "lift"), 10))
+
+basketrules_graph <- plot(basketrules[1:10], method = "two-key plot")
+basketrules_graph
 ```
+
+If we want people to purchase more vegetables, which grocery items should they be placed by?
+
+```{r arules_veg, echo = FALSE}
+# Inspect rules that have "other vegetables" on the rhs
+
+rules_veg <- apriori(basket_trans,
+                     parameter = list(supp = 0.01, conf = 0.2, minlen = 2),
+                     appearance = list(rhs = "other vegetables"))
+
+rules_veg_tabl <- as.data.frame(inspect(head(sort(rules_veg, by = "lift"), 5)))
+rownames(rules_veg_tabl) <- NULL
+knitr::kable(rules_veg_tabl)
+rules_veg_graph <- plot(rules_veg[1:10], method = "graph")
+# What about sodas?
+
+rules_soda <- apriori(basket_trans,
+                      parameter = list(supp = 0.01, conf = 0.2, minlen = 2),
+                      appearance = list(rhs = "soda"))
+inspect(head(sort(rules_soda, by = "lift"), 5))
+```
+
+Click on the dropdown in the left-hand corner to isolate either the rules associated with the item itself, or to isolate specific rules. Rules are shaded by the size of their lift; bright red rules have the highest lifts.
