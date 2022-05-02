@@ -1,8 +1,8 @@
 ---
 title: "DM_Homework_4"
 author: "Christina Ridlen"
-date: "4/25/2022"
-output: html_document
+date: "`r Sys.Date()"
+output: md_document
 ---
 
 ```{r libraries, include = FALSE}
@@ -11,7 +11,7 @@ library(tidyverse)
 library(factoextra)
 library(ggpubr)
 library(arules)
-library(RColorBrewer)
+library(arulesViz)
 library(htmlwidgets)
 setwd("C:/Users/tinar/ECO395M-Homework/homework")
 ```
@@ -54,11 +54,11 @@ wine_2 %>%
   filter(km.color.cluster == 2) %>%
   group_by(color) %>%
   summarize(n = n())
-
+par(mfrow = c(1,2), bg = 'gray')
 ```
 
 ```{r plot_colorkm, echo = FALSE}
-par(mfrow = c(1,2), bg = 'gray')
+
 plot(X, 
      col = km.color$cluster,
      main = "K-Means with two clusters", 
@@ -89,6 +89,7 @@ for (i in 1:15) {
 ```
 
 ```{r elbow_plot, echo = FALSE}
+par(mfrow = c(1,1), bg = "white")
 plot(1:15, wss, type = "b")
 ```
 
@@ -146,7 +147,7 @@ It appears that K means is good at distinguishing high quality wine wines and go
 
 ```{r pr_wine, include = FALSE}
 pr.wine <- prcomp(X, scale = TRUE)
-summary(pr.wine)
+
 
 
 wine_rotation <- pr.wine$rotation %>%
@@ -163,9 +164,13 @@ pca_importance <- function(x) {
       `Cumulative Proportion` = cumsum(vars))
 }
 
-knitr::kable(pca_importance(sum.pca))
+pca_imp <- pca_importance(sum.pca)
+colnames(pca_imp) <- c("PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC11")
+knitr::kable(pca_imp)
 
 ```
+
+By summarizing the statistics of the principal components, we learn that:
 
 -   First 2 principal components explain about 50% of the cumulative variance in the dataset
 
@@ -182,7 +187,7 @@ wine <- wine %>%
 
 ```
 
-```{r qplot_wine_pca, include = FALSE}
+```{r qplot_wine_pca, echo = FALSE}
 wine <- merge(wine, pr.wine$x[, 1:11], by = "row.names")
 wine = subset(wine, select = -c(Row.names))
 
@@ -193,11 +198,27 @@ qplot(pr.wine$x[, 1],
       ylab = "PC 2")
 ```
 
-Clustering works better here for distinguishing reds with whites. The process is much more simple and pretty efficient at characterizing the wines. PCA is much harder to interpret because it is difficult to visualize more than two components at once with over 6500 observations. However, PCA suggests that the four clusters found in K-means are most explanatory of the data. This might confirm the "four-types" hypothesis I proposed from K-means.
+```{r qplot_quality, include = FALSE}
+qplot(pr.wine$x[, 1],
+      pr.wine$x[, 2],
+      color = wine$quality,
+      xlab = "PC 1",
+      ylab = "PC 2")
+```
+
+We see that PCA performs similarly for categorizing wine color. Interpreting quality is a little more ambiguous. Additionally, PCA shows that four principal components are the most explanatory of the variance in the data. However, if we want to learn anything through visualization, we would have to plot $\binom{4}{2} = 6$ different plots to learn exactly how those four different components separate the data.
+
+## Conclusion
+
+**Clustering works better here for distinguishing reds with whites.** The process is much more simple and pretty efficient at characterizing the wines. PCA is not as useful here because there is a lot of overlap between the points. If the data could be organized into different components more evenly, the results would be better for interpretation.
+
+However, PCA suggests that the four clusters found in K-means are most explanatory of the data. This might confirm the "four-types" hypothesis I proposed from K-means.
 
 # Problem 2: Market Segmentation
 
 ## Overview
+
+In this problem, I want to use exploratory data analysis to optimize marketing schemes for NutrientH2O's twitter followers. There are about 7900 Twitter users that follow the account and their tweets were observed for seven days. For each tweet observed, the general topic of the tweet was placed into one of 36 categories, such as "current events", "travel", "photo sharing." I use K-means clustering to find interesting results from tweet category counts.
 
 ## Organizing Followers by Tweets
 
@@ -283,13 +304,19 @@ figure <- ggarrange(p1,
 figure  
 ```
 
+## Conclusion
+
 It appears that we can categorize NutrientH20's followers into two categories by their tweets' categorical frequencies. In cluster 1, the top 5 tweet categories are photo sharing, personal fitness, outdoors, health/nutrition, and cooking. These seem like the types of people that the account can market to by promoting the health and fitness benefits of the drink. Maybe they can post a picture of someone hiking with their NutrientH20 drink!
 
 In cluster 2, the top categories are travel, sports, politics, photo sharing, and current events. These are also probably the top categories for young men on Twitter in general. To market to this audience, NutrientH20 should just try to stay relevant in Twitter culture. People in cluster 2 would totally buy NutrientH20 just because one of their funny tweets went viral.
 
 # Problem 3: Market Basket Analysis
 
-```{r p3_data, include = FALSE}
+## Overview
+
+In the `groceries` dataset, each row is a "basket" of grocery items purchased. The goal here is to find the most interesting association rules between items purchased. This is also known as market basket analysis.
+
+```{r p3_data_pp, include = FALSE, cache = TRUE}
 
 groceries <- read_delim(
   file = "../data/groceries.txt",
@@ -315,51 +342,83 @@ for(i in 1:length(groceries$X1)){
 grocery_list <- groceries$X1
 names(grocery_list) <- as.factor(c(1:9835))
 
+basket_trans <- as(grocery_list, "transactions")
+summary(basket_trans)
 ```
 
-Which items are the most frequent? The following table summarizes the 5 most popular items purchased.
+## Working with the data
+
+First, I summarize the top 5 most purchased items in each basket in a bar plot.
+
+```{r item_freq, echo = FALSE}
+itemFrequencyPlot(basket_trans, topN = 5, col = rainbow(10), type = "absolute")
+```
+
+To calculate the association rules, I used the `apriori` function in R, choosing a support of 0.0009 and a confidence of 0.5. So I want rules that happen about 0.09% of the time and that we are about 50% confident will occur in a given transaction. I choose these parameters because I want to isolate rules that are less common (low support) but have a high confidence of occurring together (confidence). This just makes our results more interesting.
 
 ```{r data_ap, include = FALSE}
 
-basket_trans <- as(grocery_list, "transactions")
-summary(basket_trans)
+
 
 # apriori
 
 basketrules = apriori(basket_trans, 
-                      parameter = list(support = 0.01, confidence = 0.2,
-                           minlen = 2, target = "rules"))
+                      parameter = list(support = 0.0009, confidence = 0.5,
+                           maxlen = 10, target = "rules"))
 inspect(basketrules)
 
-itemFrequencyPlot(basket_trans, topN = 5, col = rainbow(10), type = "absolute")
 
+
+
+```
+
+In this table, I summarize the top 10 rules with the highest lifts.
+
+```{r h_lift, echo = FALSE}
 # Find rules with the highest lifts
 
-inspect(head(sort(basketrules, by = "lift"), 10))
-
-basketrules_graph <- plot(basketrules[1:10], method = "two-key plot")
-basketrules_graph
+brules_lift <- as.data.frame(inspect(head(sort(basketrules, by = "lift"), 10)))
+brules_lift <- brules_lift[, -2]
+rownames(brules_lift) <- NULL
+knitr::kable(brules_lift)
 ```
+
+## Results
 
 If we want people to purchase more vegetables, which grocery items should they be placed by?
 
-```{r arules_veg, echo = FALSE}
+```{r arules_veg, include = FALSE}
 # Inspect rules that have "other vegetables" on the rhs
 
 rules_veg <- apriori(basket_trans,
-                     parameter = list(supp = 0.01, conf = 0.2, minlen = 2),
+                     parameter = list(supp = 0.001, conf = 0.5, maxlen = 10),
                      appearance = list(rhs = "other vegetables"))
 
 rules_veg_tabl <- as.data.frame(inspect(head(sort(rules_veg, by = "lift"), 5)))
+rules_veg_tabl <- rules_veg_tabl[, -2]
 rownames(rules_veg_tabl) <- NULL
-knitr::kable(rules_veg_tabl)
-rules_veg_graph <- plot(rules_veg[1:10], method = "graph")
-# What about sodas?
+
+rules_veg_graph <- plot(rules_veg, method = "graph")
+
+# What about sodas
 
 rules_soda <- apriori(basket_trans,
-                      parameter = list(supp = 0.01, conf = 0.2, minlen = 2),
+                      parameter = list(supp = 0.001, conf = 0.5, minlen = 2),
                       appearance = list(rhs = "soda"))
-inspect(head(sort(rules_soda, by = "lift"), 5))
+inspect(head(sort(rules_soda, by = "lift")))
+rules_soda_graph <- plot(rules_soda[1:10], method = "graph")
+
 ```
 
-Click on the dropdown in the left-hand corner to isolate either the rules associated with the item itself, or to isolate specific rules. Rules are shaded by the size of their lift; bright red rules have the highest lifts.
+Below I have summarized in two graphs rules that include "other vegetables" and "soda" on the right hand side. If we want people to consume more vegetables, we can place these food items near the vegetables. Similarly, if a soda company wants more people to buy its product, it can place their sodas next to these products. It seems that people mostly consumer sodas with other drinks. For calculating the association rules for these two products, I let the support equal 0.001 and the confidence equal 0.5, using a similar logic as before.
+
+```{r arules_graphs, echo = FALSE}
+knitr::kable(rules_veg_tabl)
+ggarrange(rules_veg_graph,
+          rules_soda_graph,
+          ncol = 2,
+          nrow = 1)
+
+```
+
+Overall, the results are pretty standard because we're dealing with grocery items. However, the `apriori` algorithm on this dataset could be useful for suppliers of common grocery items.
