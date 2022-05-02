@@ -199,7 +199,7 @@ qplot(pr.wine$x[, 1],
       ylab = "PC 2")
 ```
 
-```{r qplot_quality, include = FALSE}
+```{r qplot_quality, echo = FALSE}
 qplot(pr.wine$x[, 1],
       pr.wine$x[, 2],
       color = wine$quality,

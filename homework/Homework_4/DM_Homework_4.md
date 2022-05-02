@@ -26,7 +26,7 @@ Here we see that the algorithm almost perfectly distinguishes reds from
 whites. It only misses some whites that are similar to reds, so those
 white wines must have more sugar or more acidity.
 
-### K-means for wine quality
+### K means for wine quality
 
 ![](DM_Homework_4_files/figure-markdown_strict/elbow_plot-1.png)
 
@@ -156,6 +156,8 @@ that:
     variance in the dataset
 
 ![](DM_Homework_4_files/figure-markdown_strict/qplot_wine_pca-1.png)
+
+![](DM_Homework_4_files/figure-markdown_strict/qplot_quality-1.png)
 
 We see that PCA performs similarly for categorizing wine color.
 Interpreting quality is a little more ambiguous. Additionally, PCA shows
