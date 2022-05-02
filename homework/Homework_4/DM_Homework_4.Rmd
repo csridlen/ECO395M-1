@@ -56,6 +56,8 @@ wine_2 %>%
 par(mfrow = c(1,2), bg = 'gray')
 ```
 
+### K-means for wine color
+
 ```{r plot_colorkm, echo = FALSE}
 
 plot(X, 
@@ -74,7 +76,7 @@ plot(X,
 
 Here we see that the algorithm almost perfectly distinguishes reds from whites. It only misses some whites that are similar to reds, so those white wines must have more sugar or more acidity.
 
-### Choosing the right number of clusters
+### K means for wine quality
 
 ```{r kmeans_wine, include = FALSE}
 
@@ -412,7 +414,6 @@ rules_soda_graph <- plot(rules_soda[1:10], method = "graph")
 ```
 
 Below I have summarized in two graphs rules that include "other vegetables" and "soda" on the right hand side. If we want people to consume more vegetables, we can place these food items near the vegetables. Similarly, if a soda company wants more people to buy its product, it can place their sodas next to these products. It seems that people mostly consumer sodas with other drinks. For calculating the association rules for these two products, I let the support equal 0.001 and the confidence equal 0.5, using a similar logic as before.
-
 
 ```{r arules_graphs, echo = FALSE}
 rules_veg_graph

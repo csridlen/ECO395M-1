@@ -18,13 +18,15 @@ data with the `scale` function from the base R library. This function
 centers the numeric columns of the dataset. To see if this algorithm
 distinguishes reds from whites, I set the number of clusters to 2.
 
+### K-means for wine color
+
 ![](DM_Homework_4_files/figure-markdown_strict/plot_colorkm-1.png)![](DM_Homework_4_files/figure-markdown_strict/plot_colorkm-2.png)
 
 Here we see that the algorithm almost perfectly distinguishes reds from
 whites. It only misses some whites that are similar to reds, so those
 white wines must have more sugar or more acidity.
 
-### Choosing the right number of clusters
+### K means for wine quality
 
 ![](DM_Homework_4_files/figure-markdown_strict/elbow_plot-1.png)
 
