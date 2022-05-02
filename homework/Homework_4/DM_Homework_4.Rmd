@@ -370,10 +370,10 @@ basketrules = apriori(basket_trans,
                            maxlen = 10, target = "rules"))
 inspect(basketrules)
 
+brules_df <- arules::DATAFRAME(basketrules)
+brules_df <- brules_df %>%
+  slice_max(order_by = lift, n = 10)
 
-brules_lift <- as.data.frame(inspect(head(sort(basketrules, by = "lift"), 10)))
-brules_lift <- brules_lift[, -2]
-rownames(brules_lift) <- NULL
 
 ```
 
@@ -381,8 +381,7 @@ In this table, I summarize the top 10 rules with the highest lifts.
 
 ```{r h_lift, echo = FALSE}
 # Find rules with the highest lifts
-
-knitr::kable(brules_lift)
+knitr::kable(brules_df, format = "markdown")
 ```
 
 ## Results
@@ -414,12 +413,10 @@ rules_soda_graph <- plot(rules_soda[1:10], method = "graph")
 
 Below I have summarized in two graphs rules that include "other vegetables" and "soda" on the right hand side. If we want people to consume more vegetables, we can place these food items near the vegetables. Similarly, if a soda company wants more people to buy its product, it can place their sodas next to these products. It seems that people mostly consumer sodas with other drinks. For calculating the association rules for these two products, I let the support equal 0.001 and the confidence equal 0.5, using a similar logic as before.
 
+
 ```{r arules_graphs, echo = FALSE}
-knitr::kable(rules_veg_tabl)
-ggarrange(rules_veg_graph,
-          rules_soda_graph,
-          ncol = 2,
-          nrow = 1)
+rules_veg_graph
+rules_soda_graph
 
 ```
 

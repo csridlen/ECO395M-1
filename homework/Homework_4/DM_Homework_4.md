@@ -259,7 +259,120 @@ results more interesting.
 
 In this table, I summarize the top 10 rules with the highest lifts.
 
-|| || || ||
+<table style="width:100%;">
+<colgroup>
+<col style="width: 49%" />
+<col style="width: 13%" />
+<col style="width: 8%" />
+<col style="width: 8%" />
+<col style="width: 8%" />
+<col style="width: 7%" />
+<col style="width: 4%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">LHS</th>
+<th style="text-align: left;">RHS</th>
+<th style="text-align: right;">support</th>
+<th style="text-align: right;">confidence</th>
+<th style="text-align: right;">coverage</th>
+<th style="text-align: right;">lift</th>
+<th style="text-align: right;">count</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">{curd,other vegetables,whipped/sour cream,whole milk,yogurt}</td>
+<td style="text-align: left;">{cream cheese }</td>
+<td style="text-align: right;">0.0009151</td>
+<td style="text-align: right;">0.8181818</td>
+<td style="text-align: right;">0.0011185</td>
+<td style="text-align: right;">20.63287</td>
+<td style="text-align: right;">9</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">{Instant food products,soda}</td>
+<td style="text-align: left;">{hamburger meat}</td>
+<td style="text-align: right;">0.0012201</td>
+<td style="text-align: right;">0.6315789</td>
+<td style="text-align: right;">0.0019319</td>
+<td style="text-align: right;">18.99565</td>
+<td style="text-align: right;">12</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">{popcorn,soda}</td>
+<td style="text-align: left;">{salty snack}</td>
+<td style="text-align: right;">0.0012201</td>
+<td style="text-align: right;">0.6315789</td>
+<td style="text-align: right;">0.0019319</td>
+<td style="text-align: right;">16.69779</td>
+<td style="text-align: right;">12</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">{baking powder,flour}</td>
+<td style="text-align: left;">{sugar}</td>
+<td style="text-align: right;">0.0010168</td>
+<td style="text-align: right;">0.5555556</td>
+<td style="text-align: right;">0.0018302</td>
+<td style="text-align: right;">16.40807</td>
+<td style="text-align: right;">10</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">{curd,flour,whole milk}</td>
+<td style="text-align: left;">{sugar}</td>
+<td style="text-align: right;">0.0009151</td>
+<td style="text-align: right;">0.5294118</td>
+<td style="text-align: right;">0.0017285</td>
+<td style="text-align: right;">15.63593</td>
+<td style="text-align: right;">9</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">{ham,processed cheese}</td>
+<td style="text-align: left;">{white bread}</td>
+<td style="text-align: right;">0.0019319</td>
+<td style="text-align: right;">0.6333333</td>
+<td style="text-align: right;">0.0030503</td>
+<td style="text-align: right;">15.04549</td>
+<td style="text-align: right;">19</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">{Instant food products,whole milk}</td>
+<td style="text-align: left;">{hamburger meat}</td>
+<td style="text-align: right;">0.0015252</td>
+<td style="text-align: right;">0.5000000</td>
+<td style="text-align: right;">0.0030503</td>
+<td style="text-align: right;">15.03823</td>
+<td style="text-align: right;">15</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">{curd,other vegetables,whipped/sour cream,yogurt}</td>
+<td style="text-align: left;">{cream cheese }</td>
+<td style="text-align: right;">0.0010168</td>
+<td style="text-align: right;">0.5882353</td>
+<td style="text-align: right;">0.0017285</td>
+<td style="text-align: right;">14.83409</td>
+<td style="text-align: right;">10</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">{chocolate,flour}</td>
+<td style="text-align: left;">{sugar}</td>
+<td style="text-align: right;">0.0009151</td>
+<td style="text-align: right;">0.5000000</td>
+<td style="text-align: right;">0.0018302</td>
+<td style="text-align: right;">14.76727</td>
+<td style="text-align: right;">9</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">{hard cheese,tropical fruit,whipped/sour cream}</td>
+<td style="text-align: left;">{butter}</td>
+<td style="text-align: right;">0.0009151</td>
+<td style="text-align: right;">0.8181818</td>
+<td style="text-align: right;">0.0011185</td>
+<td style="text-align: right;">14.76480</td>
+<td style="text-align: right;">9</td>
+</tr>
+</tbody>
+</table>
 
 ## Results
 
@@ -275,9 +388,7 @@ people mostly consumer sodas with other drinks. For calculating the
 association rules for these two products, I let the support equal 0.001
 and the confidence equal 0.5, using a similar logic as before.
 
-|| || || ||
-
-![](DM_Homework_4_files/figure-markdown_strict/arules_graphs-1.png)
+![](DM_Homework_4_files/figure-markdown_strict/arules_graphs-1.png)![](DM_Homework_4_files/figure-markdown_strict/arules_graphs-2.png)
 
 Overall, the results are pretty standard because we’re dealing with
 grocery items. However, the `apriori` algorithm on this dataset could be
