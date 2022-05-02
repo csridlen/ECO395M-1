@@ -12,8 +12,7 @@ library(factoextra)
 library(ggpubr)
 library(arules)
 library(arulesViz)
-library(htmlwidgets)
-setwd("C:/Users/tinar/ECO395M-Homework/homework")
+setwd("C:/Users/tinar/ECO395M-Homework/homework/Homework_4")
 ```
 
 # Problem 1: Clustering and PCA
@@ -27,7 +26,7 @@ The properties of 6500 different bottles of wine are included in the `wine` data
 First, I attempt to solve this problem through cluster analysis. Specifically, I will be using the K-means algorithm. I normalize the data with the `scale` function from the base R library. This function centers the numeric columns of the dataset. To see if this algorithm distinguishes reds from whites, I set the number of clusters to 2.
 
 ```{r wine_data, include = FALSE}
-wine <- read.csv("../data/wine.csv", header = TRUE)
+wine <- read.csv("../../data/wine.csv", header = TRUE)
 wine["id"] = c(1:6497)
 X <- scale(subset(wine, select = -c(color, quality, id)))
 ```
@@ -63,14 +62,14 @@ plot(X,
      col = km.color$cluster,
      main = "K-Means with two clusters", 
      xlab = " ", 
-     ylab = " ", pch = 20)
-
+     ylab = " ", pch = 19)
+par(bg = 'gray')
 plot(X,
      col = wine$color,
      main = "Wine data by color of wine", 
      xlab = " ", 
      ylab = " ",
-     pch = 20)
+     pch = 19)
 ```
 
 Here we see that the algorithm almost perfectly distinguishes reds from whites. It only misses some whites that are similar to reds, so those white wines must have more sugar or more acidity.
@@ -160,8 +159,8 @@ sum.pca <- summary(pr.wine)
 pca_importance <- function(x) {
   vars <- x$sdev^2
   vars <- vars/sum(vars)
-  rbind(`Standard deviation` = x$sdev, `Proportion of Variance` = vars, 
-      `Cumulative Proportion` = cumsum(vars))
+  rbind(`Standard deviation` = round(x$sdev, 2), `Proportion of Variance` = round(vars, 2), 
+      `Cumulative Proportion` = round(cumsum(vars), 2))
 }
 
 pca_imp <- pca_importance(sum.pca)
@@ -223,7 +222,7 @@ In this problem, I want to use exploratory data analysis to optimize marketing s
 ## Organizing Followers by Tweets
 
 ```{r market_segmentation_data, include = FALSE}
-social_marketing <- read.csv("../data/social_marketing.csv")
+social_marketing <- read.csv("../../data/social_marketing.csv")
 glimpse(social_marketing)
 X <- subset(social_marketing, select = -X)
 
@@ -255,7 +254,7 @@ The scree plot indicates we should use two clusters.
 
 ### K-means with 2 clusters
 
-Since there are so many observations and overlap within accounts, plotting the data was not very useful.
+Since there are so many observations and overlap within accounts, plotting the data was not very useful. However, I summarized the two clusters into two bar graphs. The top 5 tweet categories are highlighted in a pinkish color.
 
 ```{r social_km2, include = FALSE}
 
@@ -301,7 +300,11 @@ figure <- ggarrange(p1,
                     p2,
                     ncol = 2,
                     nrow = 1)  
-figure  
+ 
+```
+
+```{r kmeans_bar, echo = FALSE}
+figure 
 ```
 
 ## Conclusion
@@ -319,7 +322,7 @@ In the `groceries` dataset, each row is a "basket" of grocery items purchased. T
 ```{r p3_data_pp, include = FALSE, cache = TRUE}
 
 groceries <- read_delim(
-  file = "../data/groceries.txt",
+  file = "../../data/groceries.txt",
   delim = "\t",
   col_names = FALSE
 )
@@ -368,7 +371,9 @@ basketrules = apriori(basket_trans,
 inspect(basketrules)
 
 
-
+brules_lift <- as.data.frame(inspect(head(sort(basketrules, by = "lift"), 10)))
+brules_lift <- brules_lift[, -2]
+rownames(brules_lift) <- NULL
 
 ```
 
@@ -377,9 +382,6 @@ In this table, I summarize the top 10 rules with the highest lifts.
 ```{r h_lift, echo = FALSE}
 # Find rules with the highest lifts
 
-brules_lift <- as.data.frame(inspect(head(sort(basketrules, by = "lift"), 10)))
-brules_lift <- brules_lift[, -2]
-rownames(brules_lift) <- NULL
 knitr::kable(brules_lift)
 ```
 
@@ -398,7 +400,7 @@ rules_veg_tabl <- as.data.frame(inspect(head(sort(rules_veg, by = "lift"), 5)))
 rules_veg_tabl <- rules_veg_tabl[, -2]
 rownames(rules_veg_tabl) <- NULL
 
-rules_veg_graph <- plot(rules_veg, method = "graph")
+rules_veg_graph <- plot(rules_veg[1:10], method = "graph")
 
 # What about sodas
 

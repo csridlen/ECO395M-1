@@ -82,20 +82,6 @@ different than what wine snobs would consider to be high or low quality.
 ## Principal Components Analysis
 
 <table>
-<colgroup>
-<col style="width: 17%" />
-<col style="width: 7%" />
-<col style="width: 7%" />
-<col style="width: 7%" />
-<col style="width: 7%" />
-<col style="width: 7%" />
-<col style="width: 7%" />
-<col style="width: 7%" />
-<col style="width: 7%" />
-<col style="width: 7%" />
-<col style="width: 7%" />
-<col style="width: 7%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th style="text-align: left;"></th>
@@ -115,45 +101,45 @@ different than what wine snobs would consider to be high or low quality.
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">Standard deviation</td>
-<td style="text-align: right;">1.7406518</td>
-<td style="text-align: right;">1.5791852</td>
-<td style="text-align: right;">1.2475364</td>
-<td style="text-align: right;">0.9851660</td>
-<td style="text-align: right;">0.8484544</td>
-<td style="text-align: right;">0.7793021</td>
-<td style="text-align: right;">0.7232971</td>
-<td style="text-align: right;">0.7081739</td>
-<td style="text-align: right;">0.5805377</td>
-<td style="text-align: right;">0.4771748</td>
-<td style="text-align: right;">0.1811927</td>
+<td style="text-align: right;">1.74</td>
+<td style="text-align: right;">1.58</td>
+<td style="text-align: right;">1.25</td>
+<td style="text-align: right;">0.99</td>
+<td style="text-align: right;">0.85</td>
+<td style="text-align: right;">0.78</td>
+<td style="text-align: right;">0.72</td>
+<td style="text-align: right;">0.71</td>
+<td style="text-align: right;">0.58</td>
+<td style="text-align: right;">0.48</td>
+<td style="text-align: right;">0.18</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Proportion of Variance</td>
-<td style="text-align: right;">0.2754426</td>
-<td style="text-align: right;">0.2267115</td>
-<td style="text-align: right;">0.1414861</td>
-<td style="text-align: right;">0.0882320</td>
-<td style="text-align: right;">0.0654432</td>
-<td style="text-align: right;">0.0552102</td>
-<td style="text-align: right;">0.0475599</td>
-<td style="text-align: right;">0.0455918</td>
-<td style="text-align: right;">0.0306385</td>
-<td style="text-align: right;">0.0206996</td>
-<td style="text-align: right;">0.0029846</td>
+<td style="text-align: right;">0.28</td>
+<td style="text-align: right;">0.23</td>
+<td style="text-align: right;">0.14</td>
+<td style="text-align: right;">0.09</td>
+<td style="text-align: right;">0.07</td>
+<td style="text-align: right;">0.06</td>
+<td style="text-align: right;">0.05</td>
+<td style="text-align: right;">0.05</td>
+<td style="text-align: right;">0.03</td>
+<td style="text-align: right;">0.02</td>
+<td style="text-align: right;">0.00</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Cumulative Proportion</td>
-<td style="text-align: right;">0.2754426</td>
-<td style="text-align: right;">0.5021541</td>
-<td style="text-align: right;">0.6436401</td>
-<td style="text-align: right;">0.7318722</td>
-<td style="text-align: right;">0.7973153</td>
-<td style="text-align: right;">0.8525255</td>
-<td style="text-align: right;">0.9000854</td>
-<td style="text-align: right;">0.9456772</td>
-<td style="text-align: right;">0.9763158</td>
-<td style="text-align: right;">0.9970154</td>
-<td style="text-align: right;">1.0000000</td>
+<td style="text-align: right;">0.28</td>
+<td style="text-align: right;">0.50</td>
+<td style="text-align: right;">0.64</td>
+<td style="text-align: right;">0.73</td>
+<td style="text-align: right;">0.80</td>
+<td style="text-align: right;">0.85</td>
+<td style="text-align: right;">0.90</td>
+<td style="text-align: right;">0.95</td>
+<td style="text-align: right;">0.98</td>
+<td style="text-align: right;">1.00</td>
+<td style="text-align: right;">1.00</td>
 </tr>
 </tbody>
 </table>
@@ -224,7 +210,11 @@ The scree plot indicates we should use two clusters.
 ### K-means with 2 clusters
 
 Since there are so many observations and overlap within accounts,
-plotting the data was not very useful.
+plotting the data was not very useful. However, I summarized the two
+clusters into two bar graphs. The top 5 tweet categories are highlighted
+in a pinkish color.
+
+![](DM_Homework_4_files/figure-markdown_strict/kmeans_bar-1.png)
 
 ## Conclusion
 
@@ -269,35 +259,6 @@ results more interesting.
 
 In this table, I summarize the top 10 rules with the highest lifts.
 
-    ##      lhs                         rhs                   support confidence    coverage     lift count
-    ## [1]  {curd,                                                                                         
-    ##       other vegetables,                                                                             
-    ##       whipped/sour cream,                                                                           
-    ##       whole milk,                                                                                   
-    ##       yogurt}                 => {cream cheese }  0.0009150991  0.8181818 0.001118454 20.63287     9
-    ## [2]  {Instant food products,                                                                        
-    ##       soda}                   => {hamburger meat} 0.0012201322  0.6315789 0.001931876 18.99565    12
-    ## [3]  {popcorn,                                                                                      
-    ##       soda}                   => {salty snack}    0.0012201322  0.6315789 0.001931876 16.69779    12
-    ## [4]  {baking powder,                                                                                
-    ##       flour}                  => {sugar}          0.0010167768  0.5555556 0.001830198 16.40807    10
-    ## [5]  {curd,                                                                                         
-    ##       flour,                                                                                        
-    ##       whole milk}             => {sugar}          0.0009150991  0.5294118 0.001728521 15.63593     9
-    ## [6]  {ham,                                                                                          
-    ##       processed cheese}       => {white bread}    0.0019318760  0.6333333 0.003050330 15.04549    19
-    ## [7]  {Instant food products,                                                                        
-    ##       whole milk}             => {hamburger meat} 0.0015251652  0.5000000 0.003050330 15.03823    15
-    ## [8]  {curd,                                                                                         
-    ##       other vegetables,                                                                             
-    ##       whipped/sour cream,                                                                           
-    ##       yogurt}                 => {cream cheese }  0.0010167768  0.5882353 0.001728521 14.83409    10
-    ## [9]  {chocolate,                                                                                    
-    ##       flour}                  => {sugar}          0.0009150991  0.5000000 0.001830198 14.76727     9
-    ## [10] {hard cheese,                                                                                  
-    ##       tropical fruit,                                                                               
-    ##       whipped/sour cream}     => {butter}         0.0009150991  0.8181818 0.001118454 14.76480     9
-
 || || || ||
 
 ## Results
@@ -315,9 +276,6 @@ association rules for these two products, I let the support equal 0.001
 and the confidence equal 0.5, using a similar logic as before.
 
 || || || ||
-
-    ## Warning: ggrepel: 6 unlabeled data points (too many overlaps). Consider
-    ## increasing max.overlaps
 
 ![](DM_Homework_4_files/figure-markdown_strict/arules_graphs-1.png)
 
