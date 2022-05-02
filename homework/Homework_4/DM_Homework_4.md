@@ -163,7 +163,7 @@ We see that PCA performs similarly for categorizing wine color.
 Interpreting quality is a little more ambiguous. Additionally, PCA shows
 that four principal components are the most explanatory of the variance
 in the data. However, if we want to learn anything through
-visualization, we would have to plot $\\binom{4}{2} = 6$ different plots
+visualization, we would have to plot \binom{4}{2} = 6 different plots
 to learn exactly how those four different components separate the data.
 
 ## Conclusion
